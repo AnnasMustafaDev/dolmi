@@ -77,16 +77,7 @@ $pyw = Join-Path $InstallDir "venv\Scripts\pythonw.exe"
 $appPy = Join-Path $InstallDir "app.py"
 $icon = Join-Path $InstallDir "assets\dolmi-2.ico"
 if (-not $NoShortcuts) {
-    $shell = New-Object -ComObject WScript.Shell
-    foreach ($dir in @([Environment]::GetFolderPath("Desktop"), [Environment]::GetFolderPath("Programs"))) {
-        $lnk = $shell.CreateShortcut((Join-Path $dir "Dolmi.lnk"))
-        $lnk.TargetPath = $pyw
-        $lnk.Arguments = "`"$appPy`""
-        $lnk.WorkingDirectory = $InstallDir
-        $lnk.IconLocation = "$icon,0"
-        $lnk.Description = "Dolmi - live German to English meeting subtitles"
-        $lnk.Save()
-    }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $InstallDir "create_shortcuts.ps1")
     # Listed in Settings > Apps, so it can be uninstalled like any other app
     $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Dolmi"
     New-Item -Path $key -Force | Out-Null

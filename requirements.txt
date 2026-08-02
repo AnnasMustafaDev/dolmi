@@ -1,0 +1,9 @@
+faster-whisper>=1.1
+ctranslate2>=4.0
+pyaudiowpatch>=0.2.12
+numpy
+sentencepiece
+customtkinter>=5.2
+pillow
+anthropic>=1.0
+openai>=1.0

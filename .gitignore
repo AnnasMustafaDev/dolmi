@@ -13,6 +13,11 @@ settings.json
 transcripts/
 dolmi.db
 dolmi.log
+# real meeting output (private conversations) — never publish
+meeting_*
+summary_*
+saved_*
+assistant_*
 
 # Downloaded models and build output
 models/

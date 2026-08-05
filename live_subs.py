@@ -115,8 +115,26 @@ class Vocabulary:
             en = pat.sub(lambda _: good, en)
         return en
 
+def _enable_cuda_dlls():
+    """Make pip-installed CUDA libs (nvidia-cublas-cu12 / nvidia-cudnn-cu12) discoverable, so the GPU
+    path works without a full CUDA toolkit. On PATH so find_library() sees them, and on the DLL
+    search path so CTranslate2 can load them. A no-op when the wheels aren't installed (stays CPU)."""
+    import os
+    import sys
+    base = Path(sys.prefix) / "Lib" / "site-packages" / "nvidia"
+    for pkg in ("cublas", "cudnn"):
+        d = base / pkg / "bin"
+        if d.is_dir():
+            os.environ["PATH"] = str(d) + os.pathsep + os.environ.get("PATH", "")
+            try:
+                os.add_dll_directory(str(d))
+            except OSError:
+                pass
+
+
 class Engine:
     def __init__(self, model, device, language="de"):
+        _enable_cuda_dlls()   # wire up pip-installed CUDA libs before we probe for the GPU
         import ctranslate2
         from faster_whisper import WhisperModel
         if device == "auto":   # no torch: ask CTranslate2 directly

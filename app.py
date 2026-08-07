@@ -111,6 +111,7 @@ class Dolmi(ctk.CTk):
         self.content.grid_rowconfigure(1, weight=1)
         self._topbar()
         self.pages = {"Live": self._live_page(), "Saved": self._saved_page(),
+                      "Meetings": self._meetings_page(),
                       "Assistant": self._assistant_page(), "Inbox": self._inbox_page(), "Vocabulary": self._vocab_page(), "Models": self._models_page(),
                       "Settings": self._settings_page()}
         self.show("Live")

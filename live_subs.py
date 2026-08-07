@@ -187,7 +187,7 @@ class Engine:
         """Speech -> (text in the spoken language, language code)."""
         segs, info = self.asr.transcribe(
             audio, language=None if self.language == "auto" else self.language,
-            beam_size=1, vad_filter=True, condition_on_previous_text=False,
+            beam_size=5, vad_filter=True, condition_on_previous_text=False,
             # spelling hints go in as hotwords; only the previous sentence is the prompt
             hotwords=self.glossary or None, initial_prompt=self.context[-200:] or None)
         text = collapse_repeats(" ".join(s.text.strip() for s in segs).strip())

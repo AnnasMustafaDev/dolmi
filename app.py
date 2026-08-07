@@ -1523,6 +1523,123 @@ class Dolmi(ctk.CTk):
         self.after(3500, lambda: self.toast.configure(text=""))
 
     # ------------------------------------------------------------ privacy
+    # ------------------------------------------------------------ meetings (saved transcripts)
+    def _meetings_page(self):
+        page = self._page()
+        page.grid_columnconfigure(1, weight=1)
+        page.grid_rowconfigure(0, weight=1)
+        left = self._card(page)
+        left.grid(row=0, column=0, sticky="nsw", padx=(0, 16))
+        head = ctk.CTkFrame(left, fg_color="transparent")
+        head.pack(fill="x", padx=12, pady=(12, 4))
+        ctk.CTkLabel(head, text="Past meetings", font=font(12, "bold"), text_color=C["muted"]).pack(side="left")
+        self._small_btn(head, "Folder", self.open_transcripts).pack(side="right")
+        self.meetings_list = ctk.CTkScrollableFrame(left, width=290, fg_color="transparent")
+        self.meetings_list.pack(fill="both", expand=True, padx=4, pady=(0, 8))
+
+        right = self._card(page)
+        right.grid(row=0, column=1, sticky="nsew")
+        rhead = ctk.CTkFrame(right, fg_color="transparent")
+        rhead.pack(fill="x", padx=20, pady=(16, 0))
+        self._small_btn(rhead, "Delete", self.delete_meeting).pack(side="right")
+        self._small_btn(rhead, "Export…", self.export_meeting).pack(side="right", padx=8)
+        self._small_btn(rhead, "Copy", lambda: (self._copy(self.meetings_view.get("1.0", "end")),
+                        self.flash("Transcript copied"))).pack(side="right", padx=(0, 8))
+        self.meetings_title = ctk.CTkLabel(rhead, text="", font=font(15, "bold"), text_color=C["text"],
+                                           anchor="w", justify="left")
+        self.meetings_title.pack(side="left", fill="x", expand=True)
+        self.meetings_view = self._text(right)
+        self.meetings_view.config(state="disabled")
+        self.meetings_selected, self.meetings_rows = None, {}
+        return page
+
+    def _meeting_files(self):
+        return sorted(self.data.glob("meeting_*.md"), reverse=True) if self.data.exists() else []
+
+    def _meeting_label(self, path):
+        """A friendly (day, time) from a meeting_YYYY-MM-DD_HH-MM.md filename."""
+        try:
+            dt = datetime.strptime(path.stem.removeprefix("meeting_"), "%Y-%m-%d_%H-%M")
+            return f"{dt:%a %d %b %Y}", f"{dt:%H:%M}"
+        except ValueError:
+            return path.stem, ""
+
+    def refresh_meetings(self):
+        for w in self.meetings_list.winfo_children():
+            w.destroy()
+        files = self._meeting_files()
+        self.meetings_rows = {}
+        if not files:
+            tk.Label(self.meetings_list, text="No meetings yet.\nEvery session is saved here automatically.",
+                     font=(FONT, 10), fg=C["muted"], bg=C["surface"], justify="left").pack(anchor="w", padx=10, pady=10)
+            self.meetings_selected = None
+            self._show_meeting(None)
+            return
+        for p in files:
+            day, tm = self._meeting_label(p)
+            row = tk.Frame(self.meetings_list, bg=C["surface"], cursor="hand2", padx=10, pady=8)
+            row.pack(fill="x", pady=1)
+            tk.Label(row, text=f"{day}  {tm}".strip(), font=(FONT, 10, "bold"), fg=C["text"],
+                     bg=C["surface"], anchor="w").pack(fill="x")
+            kb = max(1, p.stat().st_size // 1024)
+            tk.Label(row, text=f"{kb} KB", font=(FONT, 9), fg=C["muted"], bg=C["surface"], anchor="w").pack(fill="x")
+            for w in (row, *row.winfo_children()):
+                w.bind("<Button-1>", lambda e, path=p: self._show_meeting(path))
+            self.meetings_rows[p] = row
+        current = self.meetings_selected if self.meetings_selected in self.meetings_rows else files[0]
+        self._show_meeting(current)
+
+    def _show_meeting(self, path):
+        self.meetings_selected = path
+        for p, row in self.meetings_rows.items():
+            bg = C["surface2"] if p == path else C["surface"]
+            row.configure(bg=bg)
+            for w in row.winfo_children():
+                w.configure(bg=bg)
+        self.meetings_view.config(state="normal")
+        self.meetings_view.delete("1.0", "end")
+        if path is None:
+            self.meetings_title.configure(text="")
+            self.meetings_view.config(state="disabled")
+            return
+        day, tm = self._meeting_label(path)
+        self.meetings_title.configure(text=f"{day}  {tm}".strip())
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except OSError as e:
+            raw = f"Could not read this transcript: {e}"
+        # plain, readable view: drop the markdown markers used in the saved file
+        text = raw.replace("<sub>", "").replace("</sub>", "").replace("**", "")
+        self.meetings_view.insert("1.0", text)
+        self.meetings_view.config(state="disabled")
+
+    def delete_meeting(self):
+        p = self.meetings_selected
+        if not p:
+            return
+        if not messagebox.askyesno("Delete meeting?", f"Delete this transcript?\n\n{p.name}\n\n"
+                                   "This cannot be undone.", parent=self):
+            return
+        for f in (p, p.with_suffix(".srt")):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+        self.meetings_selected = None
+        self.refresh_meetings()
+        self.flash("Meeting deleted")
+
+    def export_meeting(self):
+        p = self.meetings_selected
+        if not p:
+            self.flash("No meeting selected", C["draft"])
+            return
+        dest = filedialog.asksaveasfilename(parent=self, initialfile=p.name, defaultextension=".md",
+                                            filetypes=[("Markdown", "*.md"), ("Text", "*.txt")])
+        if dest:
+            shutil.copyfile(p, dest)
+            self.flash(f"Exported to {Path(dest).name}")
+
     def open_transcripts(self):
         self.data.mkdir(exist_ok=True)
         os.startfile(self.data)

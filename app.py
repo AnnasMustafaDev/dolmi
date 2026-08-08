@@ -166,7 +166,7 @@ class Dolmi(ctk.CTk):
         self.lang_lbl.pack(anchor="w")
 
         self.nav = {}
-        for name, glyph in (("Live", "●"), ("Assistant", "✦"), ("Inbox", "✉"), ("Saved", "★"), ("Vocabulary", "Aa"), ("Models", "◆"), ("Settings", "⚙")):
+        for name, glyph in (("Live", "●"), ("Assistant", "✦"), ("Inbox", "✉"), ("Saved", "★"), ("Meetings", "🗂"), ("Vocabulary", "Aa"), ("Models", "◆"), ("Settings", "⚙")):
             b = ctk.CTkButton(side, text=f"  {glyph}   {name}", anchor="w", height=40, corner_radius=8,
                               font=font(14), fg_color="transparent", hover_color=C["surface2"],
                               text_color=C["muted"], command=lambda n=name: self.show(n))

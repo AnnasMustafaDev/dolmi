@@ -1252,6 +1252,8 @@ class Dolmi(ctk.CTk):
             self.refresh_models()
         if name == "Inbox":
             self.refresh_inbox()
+        if name == "Meetings":
+            self.refresh_meetings()
 
     def bring_to_front(self):
         self.deiconify(); self.lift(); self.focus_force()

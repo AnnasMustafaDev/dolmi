@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en" data-theme="slate">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dolmi — Console (v4)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  --ui:'Inter','Segoe UI',system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="slate"]{
+  color-scheme:dark;
+  --bg:#0D1014;--bg2:#0A0D11;--panel:#14181E;--panel2:#1A1F27;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);
+  --ink:#E8ECF1;--mute:#8B95A1;--faint:#5A636E;
+  --ac:#FF7A45;--ac2:#E65F2C;--on-ac:#1A0B04;--ac-soft:rgba(255,122,69,.14);--glow:rgba(255,122,69,.35);
+  --ok:#38D39F;--rec:#FF4D4D;
+}
+:root[data-theme="dawn"]{
+  color-scheme:light;
+  --bg:#ECEEF1;--bg2:#E3E6EA;--panel:#FFFFFF;--panel2:#F3F5F8;--line:rgba(10,15,25,.09);--line2:rgba(10,15,25,.16);
+  --ink:#141922;--mute:#5B6572;--faint:#949CA7;
+  --ac:#E65F2C;--ac2:#C94C1E;--on-ac:#FFF;--ac-soft:rgba(230,95,44,.1);--glow:rgba(230,95,44,.3);
+  --ok:#17986B;--rec:#D83A3A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{cursor:pointer;border:0;background:none;color:inherit;font:inherit}
+.ic svg{width:18px;height:18px;stroke-width:2}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--mono)}
+
+.app{height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--bg)}
+
+/* toolbar */
+.bar{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:-.02em}
+.mark{width:28px;height:28px;border-radius:7px;background:var(--ac);display:grid;place-items:center}
+.mark svg{width:16px;height:16px}
+.brand .v{color:var(--faint);font-size:11px;font-weight:500}
+.rec{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mute);background:var(--panel);border:1px solid var(--line);padding:6px 11px;border-radius:7px}
+.rec .d{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.rec.on{color:var(--ink)}.rec.on .d{background:var(--rec);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.bar .sp{flex:1}
+.badge{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mute);background:var(--panel);border:1px solid var(--line);padding:6px 11px;border-radius:7px}
+.badge b{color:var(--ac);font-weight:600}
+.tgl{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--mute);background:var(--panel);border:1px solid var(--line);padding:7px 12px;border-radius:7px;transition:.15s}
+.tgl.on{color:var(--ok);border-color:rgba(56,211,159,.4)}
+.start{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--on-ac);background:var(--ac);padding:8px 16px;border-radius:7px;box-shadow:0 8px 18px -8px var(--glow);transition:.15s}
+.start:hover{background:var(--ac2)}
+.start.stop{background:var(--panel2);color:var(--ink);border:1px solid var(--line2);box-shadow:none}
+
+/* body grid */
+.grid{display:grid;grid-template-columns:52px minmax(0,1fr) 300px;min-height:0}
+.rail{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0}
+.rail button{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;color:var(--mute);transition:.15s}
+.rail button:hover{background:var(--panel);color:var(--ink)}
+.rail button.a{background:var(--ac-soft);color:var(--ac)}
+.rail .sp{flex:1}
+
+/* center panes */
+.pane{display:none;min-height:0;overflow:hidden}
+.pane.a{display:flex;flex-direction:column;min-height:0}
+.phead{display:flex;align-items:center;gap:10px;padding:11px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;font-weight:600;color:var(--faint);letter-spacing:.06em}
+.phead .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.phead .sp{flex:1}
+.phead .mini{color:var(--mute);font-weight:500}
+
+/* live log */
+.log{flex:1;min-height:0;overflow:auto;padding:8px 0;scrollbar-width:thin;font-variant-numeric:tabular-nums}
+.ln{display:grid;grid-template-columns:76px 1fr;gap:14px;padding:11px 18px;border-left:2px solid transparent}
+.ln.cur{border-left-color:var(--ac);background:linear-gradient(90deg,var(--ac-soft),transparent 60%)}
+.ln .ts{font-family:var(--mono);font-size:12px;color:var(--faint);padding-top:3px}
+.ln .de{font-family:var(--mono);font-size:12.5px;color:var(--mute);margin-bottom:5px;line-height:1.5}
+.ln .de .tag{color:var(--faint)}
+.ln .en{font-size:16px;font-weight:600;line-height:1.45}
+.ln .en .tag{font-family:var(--mono);font-size:11px;color:var(--ac);font-weight:600;margin-right:8px}
+.nogerman .ln .de{display:none}
+.caret{display:inline-block;width:7px;height:15px;background:var(--ac);vertical-align:-2px;margin-left:2px;animation:blink .8s infinite}
+@keyframes blink{50%{opacity:.25}}
+.empty{margin:auto;text-align:center;color:var(--faint);padding:40px;font-family:var(--mono);font-size:13px}
+.empty svg{width:34px;height:34px;color:var(--ac);margin-bottom:10px}
+
+/* right column (stats) */
+.side{background:var(--bg2);border-left:1px solid var(--line);overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.scard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.scard h4{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.07em;color:var(--faint);margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px}
+.kv span{color:var(--mute)}.kv b{font-family:var(--mono);font-weight:600}
+.kv b.ac{color:var(--ac)}.kv b.ok{color:var(--ok)}
+.meter{height:7px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:8px}
+.meter i{display:block;height:100%;width:38%;background:linear-gradient(90deg,var(--ok),var(--ac));border-radius:4px;transition:width .3s}
+.counters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ctr{background:var(--panel2);border-radius:10px;padding:11px 12px}
+.ctr b{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-.02em;display:block}
+.ctr span{font-size:11.5px;color:var(--mute)}
+.spark{height:40px;width:100%;margin-top:4px}
+.lvl{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:8px}
+.lvl i{flex:1;background:var(--panel2);border-radius:1px;transform-origin:bottom;transform:scaleY(.15);transition:.1s}
+.lvl.on i{background:var(--faint)}.lvl.on i.hot{background:var(--ac)}
+
+/* generic pages */
+.wrap{flex:1;overflow:auto;padding:18px;min-height:0}
+.sect{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.sect h3{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;color:var(--faint);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sect h3 .ic{color:var(--ac)}
+.set{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--line)}.set:last-child{border:0}
+.set .lab{font-weight:600}.set .ps{font-size:12px;color:var(--mute);margin-top:1px;max-width:320px}
+.field{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;color:var(--ink);outline:none;font-family:var(--mono);font-size:13px}.field:focus{border-color:var(--ac)}
+textarea.field{width:100%;line-height:1.7}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:3px}
+.seg button{font-size:12.5px;font-weight:600;color:var(--mute);padding:6px 12px;border-radius:6px}
+.seg button.a{background:var(--ac);color:var(--on-ac)}
+.sw{width:42px;height:25px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);position:relative;flex:none;transition:.2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:var(--mute);transition:.25s var(--ease)}
+.sw.on{background:var(--ac);border-color:var(--ac)}.sw.on::after{transform:translateX(17px);background:#fff}
+.row{display:grid;grid-template-columns:120px 1fr;gap:14px;padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.row:hover{background:var(--panel2)}.row.a{background:var(--panel2)}
+.row .t{font-family:var(--mono);font-size:11.5px;color:var(--ac)}
+.row b{font-size:13.5px}.row span{font-size:12px;color:var(--mute);display:block}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--mute);background:var(--panel2);border:1px solid var(--line);padding:5px 10px;border-radius:7px}
+.chip.on{color:var(--ac);border-color:var(--ac)}
+
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.rise{animation:rise .4s var(--ease) both}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:900px){.grid{grid-template-columns:52px minmax(0,1fr)}.side{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOOLBAR -->
+  <header class="bar">
+    <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#1A0B04" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="3.5"/><path d="M7 10h7M7 13h4"/></svg></span>dolmi<span class="v">v4</span></div>
+    <span class="rec" id="rec"><span class="d"></span><span id="recTxt">IDLE</span></span>
+    <div class="sp"></div>
+    <span class="badge">de <i data-lucide="arrow-right" style="width:12px;height:12px;vertical-align:-1px"></i> <b>en</b></span>
+    <span class="badge">CUDA · <b>large-v3-turbo</b></span>
+    <button class="tgl on" id="stealth"><span class="ic"><i data-lucide="shield-check" style="width:15px;height:15px"></i></span>Invisible</button>
+    <button class="start" id="go"><span class="ic"><i data-lucide="play" style="width:15px;height:15px"></i></span>START</button>
+  </header>
+
+  <!-- BODY -->
+  <div class="grid">
+    <!-- rail -->
+    <nav class="rail">
+      <button class="a" data-v="live" title="Live"><span class="ic"><i data-lucide="captions"></i></span></button>
+      <button data-v="meetings" title="Meetings"><span class="ic"><i data-lucide="folder-clock"></i></span></button>
+      <button data-v="vocab" title="Vocabulary"><span class="ic"><i data-lucide="book-a"></i></span></button>
+      <button data-v="settings" title="Settings"><span class="ic"><i data-lucide="settings-2"></i></span></button>
+      <div class="sp"></div>
+      <button data-v="settings" title="German on/off" id="deToggle"><span class="ic"><i data-lucide="languages"></i></span></button>
+    </nav>
+
+    <!-- LIVE -->
+    <section class="pane a" id="v-live">
+      <div class="phead"><span class="dot"></span>LIVE TRANSLATION<span class="sp"></span><span class="mini" id="headMini">idle · 0 lines</span></div>
+      <div class="log" id="log"><div class="empty"><i data-lucide="languages"></i><div>press START to begin captioning</div></div></div>
+    </section>
+
+    <!-- MEETINGS -->
+    <section class="pane" id="v-meetings">
+      <div class="phead">SAVED MEETINGS<span class="sp"></span><span class="mini">~/Documents/Dolmi</span></div>
+      <div class="wrap" style="padding:0">
+        <div class="row a"><span class="t">11:14</span><div><b>Northwind weekly — product sync</b><span>142 lines · MCP on production, Knowledge Base</span></div></div>
+        <div class="row"><span class="t">WED 10:28</span><div><b>QA planning</b><span>96 lines · Workflow editor, offers</span></div></div>
+        <div class="row"><span class="t">MON 09:40</span><div><b>Marketing standup</b><span>54 lines · Campaigns, AI configurator</span></div></div>
+        <div class="row"><span class="t">03 OCT</span><div><b>Client call — Hartmann</b><span>38 lines · Atlas portal, timeline</span></div></div>
+      </div>
+    </section>
+
+    <!-- VOCAB -->
+    <section class="pane" id="v-vocab">
+      <div class="phead">VOCABULARY<span class="sp"></span><span class="mini">applied from next line</span></div>
+      <div class="wrap">
+        <div class="sect"><h3><span class="ic"><i data-lucide="book-a"></i></span>TERMS &amp; RULES</h3>
+          <textarea class="field" rows="7">Northwind
+Atlas
+MCP
+Knowledge Base
+Cloud
+Claude Code
+Lena
+Tobias</textarea></div>
+        <div class="sect"><h3><span class="ic"><i data-lucide="sparkles"></i></span>ACTIVE FIXES</h3>
+          <div class="chips"><span class="chip on">geil → awesome</span><span class="chip on">Clara = person</span><span class="chip on">Cloud ≠ Clara</span><span class="chip on">Lenna → Lena</span><span class="chip on">Tobi → Tobias</span></div></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="pane" id="v-settings">
+      <div class="phead">SETTINGS</div>
+      <div class="wrap">
+        <div class="sect"><h3><span class="ic"><i data-lucide="languages"></i></span>SPEECH &amp; TRANSLATION</h3>
+          <div class="set"><div><div class="lab">Speech model</div><div class="ps">Auto picks large-v3-turbo on RTX 4060</div></div><select class="field"><option>Auto · GPU</option><option>small · CPU</option></select></div>
+          <div class="set"><div><div class="lab">Spoken language</div></div><select class="field"><option>German</option><option>Auto-detect</option></select></div>
+          <div class="set"><div><div class="lab">Show German source</div></div><button class="sw on" data-sw></button></div>
+        </div>
+        <div class="sect"><h3><span class="ic"><i data-lucide="shield-check"></i></span>PRIVACY</h3>
+          <div class="set"><div><div class="lab">Invisible mode</div><div class="ps">Hidden from screen shares. Ctrl+Alt+Shift+D to exit.</div></div><button class="sw on" data-sw></button></div>
+          <div class="set"><div><div class="lab">Save transcripts</div></div><button class="sw on" data-sw></button></div>
+          <div class="set"><div><div class="lab">Theme</div></div><div class="seg" id="theme"><button class="a" data-t="slate">Slate</button><button data-t="dawn">Dawn</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SIDE STATS -->
+    <aside class="side">
+      <div class="scard"><h4>ENGINE</h4>
+        <div class="kv"><span>Speech</span><b class="ac">large-v3-turbo</b></div>
+        <div class="kv"><span>Device</span><b class="ok">CUDA · RTX 4060</b></div>
+        <div class="kv"><span>Compute</span><b>float16</b></div>
+        <div class="kv"><span>GPU memory</span><b id="vram">1.9 GB</b></div>
+        <div class="meter"><i id="vramBar" style="width:24%"></i></div>
+      </div>
+      <div class="scard"><h4>SESSION</h4>
+        <div class="counters">
+          <div class="ctr"><b id="cLines">0</b><span>lines</span></div>
+          <div class="ctr"><b id="cWords">0</b><span>words</span></div>
+          <div class="ctr"><b id="cLpm">0</b><span>lines/min</span></div>
+          <div class="ctr"><b id="cLag">0.3s</b><span>avg lag</span></div>
+        </div>
+        <svg class="spark" viewBox="0 0 160 40" fill="none" aria-hidden="true"><path id="spark" d="M2 32 L20 28 L36 30 L54 18 L72 22 L90 12 L108 20 L126 10 L144 16 L158 6" stroke="var(--ac)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="scard"><h4>AUDIO · SPEAKERS (REALTEK)</h4>
+        <div class="lvl" id="lvl" aria-hidden="true"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const root=document.documentElement,icons=()=>window.lucide&&lucide.createIcons();
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+$$('.rail button[data-v]').forEach(b=>b.onclick=()=>{
+  if(b.id==='deToggle'){ $('#log').classList.toggle('nogerman'); b.classList.toggle('a'); return; }
+  $$('.rail button[data-v]').forEach(n=>{ if(n.id!=='deToggle') n.classList.toggle('a',n===b); });
+  $$('.pane').forEach(p=>p.classList.toggle('a',p.id==='v-'+b.dataset.v));
+});
+$$('[data-sw]').forEach(s=>s.onclick=()=>s.classList.toggle('on'));
+$('#stealth').onclick=()=>$('#stealth').classList.toggle('on');
+$$('#theme button').forEach(b=>b.onclick=()=>{ $$('#theme button').forEach(x=>x.classList.toggle('a',x===b)); root.dataset.theme=b.dataset.t; });
+
+/* audio level bars */
+const lvl=$('#lvl'),N=28; lvl.innerHTML=Array.from({length:N},()=>'<i></i>').join('');
+const lb=[...lvl.children]; let lv=new Array(N).fill(.15),listening=false,raf=0,speaking=0;
+function wave(){for(let i=0;i<N;i++){const t=listening?(.12+Math.random()*(speaking?.88:.25)):.15;lv[i]+=(t-lv[i])*.4;lb[i].style.transform=`scaleY(${lv[i].toFixed(3)})`;lb[i].classList.toggle('hot',listening&&lv[i]>.7);}if(listening||lv.some(x=>Math.abs(x-.15)>.01))raf=requestAnimationFrame(wave);}
+
+const LINES=[
+ {de:'Ich habe den MCP gerade auf Production getestet.',en:'I just tested the MCP on production.'},
+ {de:'Man kann die Knowledge Base jetzt direkt aus der Cloud abfragen.',en:'You can now query the Knowledge Base directly from the Cloud.'},
+ {de:'Hochladen geht noch nicht, das kommt als Nächstes.',en:"Uploading isn't possible yet — that's coming next."},
+ {de:'Wir brauchen dafür keinen Code, nur Config.',en:"We don't need any code for that, just config."},
+ {de:'Lena schaut sich das nächste Woche im Marketing an.',en:'Lena will look at it in Marketing next week.'},
+ {de:'Das war wirklich geil, wie schnell das lief.',en:'It was really awesome how fast it ran.'},
+ {de:'Clara aus HR braucht dafür auch einen Zugang.',en:'Clara from HR needs access to it too.'},
+];
+let li=0,busy=false,lines=0,words=0; const log=$('#log');
+const stamp=()=>new Date().toLocaleTimeString('en-GB',{hour12:false});
+async function type(el,txt){const w=txt.split(' ');const c=document.createElement('span');c.className='caret';el.append(c);for(let i=0;i<w.length;i++){c.before(document.createTextNode((i?' ':'')+w[i]));await sleep(26+Math.random()*28);}c.remove();}
+async function line(){
+  if(busy)return; busy=true;
+  $$('.ln.cur').forEach(l=>l.classList.remove('cur'));
+  const s=LINES[li++%LINES.length];
+  const el=document.createElement('div'); el.className='ln cur';
+  el.innerHTML=`<div class="ts">${stamp()}</div><div><div class="de"><span class="tag">DE </span>${esc(s.de)}</div><div class="en"><span class="tag">EN</span></div></div>`;
+  log.append(el); log.scrollTop=log.scrollHeight;
+  await sleep(200); await type(el.querySelector('.en'),s.en);
+  log.scrollTop=log.scrollHeight;
+  lines++; words+=s.en.split(' ').length;
+  $('#cLines').textContent=lines; $('#cWords').textContent=words;
+  $('#cLpm').textContent=Math.min(26,10+lines);
+  $('#headMini').textContent=`live · ${lines} line${lines!=1?'s':''}`;
+  busy=false;
+}
+let timer=0;
+function setListening(on){
+  listening=on;
+  $('#go').className='start'+(on?' stop':''); $('#go').innerHTML=`<span class="ic"><i data-lucide="${on?'square':'play'}" style="width:15px;height:15px"></i></span>${on?'STOP':'START'}`;
+  $('#rec').classList.toggle('on',on); $('#recTxt').textContent=on?'REC':'IDLE';
+  lvl.classList.toggle('on',on); cancelAnimationFrame(raf); wave(); icons();
+  clearInterval(timer);
+  if(on){ log.innerHTML=''; lines=0;words=0; $('#headMini').textContent='live · 0 lines'; loop(); timer=setInterval(loop,3400); }
+  else { if(!log.children.length) log.innerHTML='<div class="empty"><i data-lucide="languages"></i><div>press START to begin captioning</div></div>'; $('#headMini').textContent=`idle · ${lines} lines`; icons(); }
+}
+async function loop(){speaking=1;await sleep(1100);speaking=0;if(listening)line();}
+$('#go').onclick=()=>setListening(!listening);
+icons(); wave();
+</script>
+</body>
+</html>

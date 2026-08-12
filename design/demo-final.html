@@ -345,3 +345,88 @@ Tobias</textarea></div>
   </div>
 </div>
 
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const root=document.documentElement,icons=()=>window.lucide&&lucide.createIcons();
+const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+$$('.nav button').forEach(b=>b.onclick=()=>{ $$('.nav button').forEach(n=>n.classList.toggle('a',n===b)); $$('.view').forEach(v=>v.classList.toggle('a',v.id==='v-'+b.dataset.v)); });
+$$('[data-sw]').forEach(s=>s.onclick=()=>s.classList.toggle('on'));
+$$('.seg:not(#theme)').forEach(s=>[...s.children].forEach(b=>b.onclick=()=>[...s.children].forEach(x=>x.classList.toggle('a',x===b))));
+$('#stealth').onclick=()=>$('#stealth').classList.toggle('on');
+$$('#theme button').forEach(b=>b.onclick=()=>{ $$('#theme button').forEach(x=>x.classList.toggle('a',x===b)); root.dataset.theme=b.dataset.t; });
+
+/* waveform */
+const track=$('#track'),N=44; track.innerHTML=Array.from({length:N},()=>'<i></i>').join('');
+const wb=[...track.children]; let lvl=new Array(N).fill(.2),listening=false,raf=0,speaking=0;
+function wave(){for(let i=0;i<N;i++){const t=listening?(.16+Math.random()*(speaking?.82:.26)):.2;lvl[i]+=(t-lvl[i])*.35;wb[i].style.transform=`scaleY(${lvl[i].toFixed(3)})`;wb[i].classList.toggle('hot',listening&&lvl[i]>.7);}if(listening||lvl.some(l=>Math.abs(l-.2)>.01))raf=requestAnimationFrame(wave);}
+
+const LINES=[
+ {de:'Ich habe den MCP gerade auf Production getestet.',en:'I just tested the MCP on production.'},
+ {de:'Man kann die Knowledge Base jetzt direkt aus der Cloud abfragen.',en:'You can now query the Knowledge Base directly from the Cloud.'},
+ {de:'Hochladen geht noch nicht, das kommt als Nächstes.',en:"Uploading isn't possible yet — that's coming next."},
+ {de:'Wir brauchen dafür keinen Code, nur Config.',en:"We don't need any code for that, just config."},
+ {de:'Lena schaut sich das nächste Woche im Marketing an.',en:'Lena will look at it in Marketing next week.'},
+ {de:'Das war wirklich geil, wie schnell das lief.',en:'It was really awesome how fast it ran.'},
+ {de:'Clara aus HR braucht dafür auch einen Zugang.',en:'Clara from HR needs access to it too.'},
+ {de:'Tobias richtet den MCP zentral für den Team Account ein.',en:'Tobias is setting up the MCP centrally for the team account.'},
+];
+let li=0,busy=false,lines=0,words=0; const brows=$('#brows');
+const stamp=()=>new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+async function type(el,txt){const w=txt.split(' ');const c=document.createElement('span');c.className='caret';el.append(c);for(let i=0;i<w.length;i++){c.before(document.createTextNode((i?' ':'')+w[i]));await sleep(26+Math.random()*28);}c.remove();}
+async function line(){
+  if(busy)return; busy=true;
+  $$('.pair.cur').forEach(p=>p.classList.remove('cur'));
+  const s=LINES[li++%LINES.length],t=stamp();
+  const p=document.createElement('div'); p.className='pair cur pop';
+  p.innerHTML=`<div class="c de"><span class="ts">${t}</span>${esc(s.de)}</div><div class="c en"><span class="ts">&nbsp;</span></div>`;
+  brows.append(p); brows.scrollTop=brows.scrollHeight;
+  await sleep(230); await type(p.querySelector('.en'),s.en);
+  brows.scrollTop=brows.scrollHeight;
+  lines++; words+=s.en.split(' ').length;
+  $('#sLines').textContent=lines; $('#sWords').textContent=words;
+  busy=false;
+}
+let timer=0;
+function setListening(on){
+  listening=on; $('#idle').style.display=on?'none':'';
+  $('#bhead').classList.toggle('on',on);
+  $('#go').innerHTML=`<span class="ic"><i data-lucide="${on?'square':'play'}"></i></span>`; icons();
+  $('#status').innerHTML=(on?'Translating':'Ready')+'<b>CUDA · large-v3-turbo</b>';
+  $('#hero').innerHTML=on?'Listening in<br><em>German.</em>':'A clear bridge between<br><em>two languages.</em>';
+  track.classList.toggle('on',on); cancelAnimationFrame(raf); wave();
+  clearInterval(timer);
+  if(on){ brows.innerHTML=''; lines=0;words=0; $('#sLines').textContent=0; $('#sWords').textContent=0; loop(); timer=setInterval(loop,3800); }
+  else { brows.innerHTML=''; brows.append($('#idleTpl').content.cloneNode(true)); icons(); }
+}
+async function loop(){speaking=1;await sleep(1300);speaking=0;if(listening)line();}
+$('#go').onclick=()=>setListening(!listening);
+
+/* keep a template of the idle block so stop can restore it */
+const idleTpl=document.createElement('template'); idleTpl.id='idleTpl'; idleTpl.innerHTML=$('#idle').outerHTML; document.body.append(idleTpl);
+
+/* onboarding */
+const STEPS=[
+ {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this PC. Only the optional Assistant chat goes to the AI.',b:''},
+ {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
+ {h:'You\'re<br><em>ready.</em>',p:'Your RTX 4060 runs large-v3-turbo, so captions are fast and accurate. Invisible mode is on.',b:'<div class="chips"><span class="chipt on">GPU · large-v3-turbo</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
+];
+let step=0;
+function render(){ const s=STEPS[step];
+  $('#onbBody').innerHTML=`<h3 class="pop">${s.h}</h3><p class="pop">${s.p}</p><div class="pop">${s.b}</div>`;
+  [...$('#steps').children].forEach((d,i)=>d.classList.toggle('on',i<=step));
+  $('#onbBack').style.visibility=step?'visible':'hidden';
+  $('#onbNext').textContent=step===STEPS.length-1?'Start using Dolmi':'Continue';
+  $$('.prov button').forEach(b=>b.onclick=()=>$$('.prov button').forEach(x=>x.classList.toggle('on',x===b))); icons();
+}
+$('#openOnb').onclick=()=>{step=0;render();$('#onb').hidden=false;};
+$('#onbNext').onclick=()=>{ if(step<STEPS.length-1){step++;render();} else $('#onb').hidden=true; };
+$('#onbBack').onclick=()=>{ if(step){step--;render();} };
+$('#onb').onclick=e=>{ if(e.target.id==='onb') $('#onb').hidden=true; };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('#onb').hidden=true; });
+
+icons(); wave();
+</script>
+</body>
+</html>

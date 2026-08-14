@@ -37,3 +37,40 @@ def _setup_output():
     print(f"\n--- Dolmi (webview) started {datetime.now():%Y-%m-%d %H:%M:%S}")
 
 
+def main():
+    _setup_output()
+    os.chdir(ROOT)                                            # core resolves relative paths from here
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    try:  # own taskbar entry + icon instead of inheriting pythonw's
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Dolmi.App")
+    except (AttributeError, OSError):
+        pass
+
+    from ui import app as app_mod
+    import stealth
+
+    api = app_mod.Api()
+    window = webview.create_window(
+        "Dolmi", url=str((WEB / "index.html").as_uri()), js_api=api,
+        width=1180, height=780, min_size=(900, 600), background_color="#F2ECDF")
+    api._window = window
+
+    def on_start():
+        # apply a saved "invisible" setting once the window really exists (it has no HWND before)
+        try:
+            window.events.shown.wait(10)
+        except Exception:
+            pass
+        if api._settings.get("invisible"):
+            api.toggle_invisible(True)
+        # a system-wide hotkey always brings Dolmi back, even hidden from the taskbar
+        stealth.GlobalHotkey(
+            stealth.MOD_CONTROL | stealth.MOD_ALT | stealth.MOD_SHIFT, 0x44,  # Ctrl+Alt+Shift+D
+            api.recover, name="show Dolmi (Ctrl+Alt+Shift+D)").start()
+
+    icon = ROOT / "assets" / "dolmi-2.ico"
+    webview.start(on_start, gui="edgechromium", private_mode=False, icon=str(icon))
+
+
+if __name__ == "__main__":
+    main()

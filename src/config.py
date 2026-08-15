@@ -44,3 +44,31 @@ def seed_example_files():
             shutil.copyfile(example, real)
 
 
+def load_settings():
+    s = copy.deepcopy(DEFAULTS)   # nested dicts (api_keys, ai_models) must never alias DEFAULTS
+    try:
+        s.update(json.loads(SETTINGS.read_text(encoding="utf-8")))
+        s["ai_context"] = s["ai_context"] or s.pop("ai_notes", "")
+    except (OSError, ValueError) as e:
+        if SETTINGS.exists():
+            print(f"settings.json unreadable, using defaults: {e}")
+    return s
+
+
+def save_settings(s):
+    """Atomic write: a crash or concurrent save can never leave a truncated settings.json
+    (which would silently drop the saved API keys on the next load)."""
+    tmp = SETTINGS.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(s, indent=2), encoding="utf-8")
+    os.replace(tmp, SETTINGS)
+
+
+def documents_folder() -> Path:
+    buf = ctypes.create_unicode_buffer(260)
+    if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0:  # 5 = CSIDL_PERSONAL
+        return Path(buf.value)
+    return Path.home() / "Documents"
+
+
+def data_folder(settings) -> Path:
+    return Path(settings["data_folder"]) if settings.get("data_folder") else documents_folder() / "Dolmi"

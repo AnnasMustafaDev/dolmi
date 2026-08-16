@@ -80,3 +80,36 @@ def _set_capture(hwnd, hidden):
         return False
 
 
+class Api:
+    def __init__(self):
+        config.load_env()
+        config.seed_example_files()
+        self._settings = config.load_settings()
+        self._settings_lock = threading.Lock()
+        self._data = config.data_folder(self._settings)
+        self._data.mkdir(parents=True, exist_ok=True)
+        self._db_path = self._data / "dolmi.db"
+        self._purge_old()
+
+        self._window = None                  # set by main
+        self._overlay = None
+        self._overlay_ready = False          # page loaded -> safe to evaluate_js without blocking
+        self._overlay_visible = False
+        self._engine = None
+        self._engine_lock = threading.Lock() # one engine load at a time
+        self._session = None                 # {"token", "stop", "transcript"} while starting/listening
+        self._lock = threading.Lock()        # guards session transitions
+        self._history = []                   # [(hh:mm:ss, de, en)] this session
+        self._hist_lock = threading.Lock()
+        self._last_transcript = None
+        self._ai_history = []
+        self._chat_id = None                 # inbox chat the next answer is saved into
+        self._asks = {}
+        self._ids = itertools.count()
+        self._level = 0.0
+        self._ui_q = queue.Queue()
+        self._ask_q = queue.Queue()
+        self._ov_q = queue.Queue()
+        for loop in (self._pump, self._answer_loop, self._level_loop, self._overlay_loop):
+            threading.Thread(target=loop, daemon=True).start()
+

@@ -113,3 +113,63 @@ class Api:
         for loop in (self._pump, self._answer_loop, self._level_loop, self._overlay_loop):
             threading.Thread(target=loop, daemon=True).start()
 
+    # ------------------------------------------------------------------ plumbing
+    def _emit(self, fn, *args):
+        w = self._window
+        if not w:
+            return
+        try:
+            w.evaluate_js(f"window.dolmi && window.dolmi.{fn}(" + ",".join(_js(a) for a in args) + ")")
+        except Exception as e:
+            print(f"emit {fn} failed: {e}")
+
+    def _ov(self, fn, *args):
+        """Queue a caption for the overlay, only once it's loaded and shown (evaluate_js on an
+        unloaded or hidden window blocks for up to 15 s and would stall the caption pump)."""
+        if self._overlay and self._overlay_ready and self._overlay_visible:
+            self._ov_q.put((fn, args))
+
+    def _overlay_loop(self):
+        while True:
+            fn, args = self._ov_q.get()
+            ov = self._overlay
+            if ov and self._overlay_visible:
+                ov.emit(fn, *args)
+
+    def _pump(self):
+        """Drain ui_q (fed by the worker and answer threads) and push to the page."""
+        while True:
+            kind, a, b = self._ui_q.get()
+            try:
+                if kind in ("final", "draft") and not self._session:
+                    continue                          # late result after Stop
+                if kind == "error":
+                    self._emit("onError", a)
+                elif kind == "final":
+                    with self._hist_lock:
+                        self._history.append((datetime.now().strftime("%H:%M:%S"), a, b))
+                    self._emit("onLine", datetime.now().strftime("%H:%M"), a, b)
+                    self._ov("line", a, b)
+                elif kind == "draft":
+                    self._emit("onDraft", a, b)
+                    self._ov("draft", a, b)
+                elif kind == "ask_start":
+                    self._emit("onAsk", a)
+                elif kind == "ask_chunk":
+                    self._emit("onAnswerChunk", a, b)
+                elif kind == "ask_done":
+                    self._emit("onAnswerDone", a, b)
+                elif kind == "sum_chunk":
+                    self._emit("onSummaryChunk", a)
+                elif kind == "sum_done":
+                    self._emit("onSummaryDone", a)
+            except Exception as e:
+                print(f"pump {kind} failed: {e}")
+
+    def _level_loop(self):
+        while True:
+            time.sleep(0.1)
+            s = self._session
+            if s and s.get("stop"):
+                self._emit("onLevel", round(float(self._level), 4))
+

@@ -254,3 +254,79 @@ class Api:
             print(f"devices failed: {e}")
             return []
 
+    # ------------------------------------------------------------------ live captions
+    def start_listening(self):
+        with self._lock:
+            if self._session:
+                return True
+            token = object()
+            self._session = {"token": token, "stop": None, "transcript": None}
+        threading.Thread(target=self._begin, args=(token,), daemon=True).start()
+        return True
+
+    def _alive(self, token):
+        s = self._session
+        return s is not None and s.get("token") is token
+
+    def _begin(self, token):
+        with self._engine_lock:                       # a second Start waits here, then reuses it
+            if not self._alive(token):
+                return
+            if not self._engine:
+                self._emit("onEngine", "loading models…")
+                try:
+                    self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
+                                                    self._settings["language"])
+                except Exception as e:
+                    with self._lock:
+                        if self._alive(token):
+                            self._session = None
+                    self._emit("onError", f"Could not load models: {e}")
+                    self._emit("onStopped")
+                    return
+                self._emit("onEngine", self._engine_label())
+        with self._lock:
+            if not self._alive(token):                # stopped while the models loaded
+                return
+            self._engine.language = self._settings["language"]
+            with self._hist_lock:
+                self._history = []
+            self._chat_id, self._ai_history = None, []
+            stop, audio_q = threading.Event(), queue.Queue()
+            tr = live_subs.Transcript(self._data, save=self._settings["save_transcripts"])
+            self._last_transcript = tr
+            self._session.update(stop=stop, transcript=tr)
+
+        def capture():
+            try:
+                live_subs.loopback_stream(audio_q, stop, self._settings["audio_device"] or None,
+                                          on_level=self._on_level)
+            except Exception as e:
+                # no audio means no captions: end the session instead of sitting on "Translating"
+                self._emit("onError", f"Can't record audio: {e}")
+                if self._alive(token):
+                    self.stop_listening()
+                else:
+                    stop.set()
+
+        threading.Thread(target=capture, daemon=True).start()
+        threading.Thread(target=live_subs.worker, args=(self._engine, audio_q, self._ui_q, tr, stop),
+                         daemon=True).start()
+        self._emit("onListening", True, self._engine_label())
+        if self._settings.get("overlay"):             # subtitles are the point of pressing Start
+            self.show_overlay()
+            self._emit("onBar", True)
+
+    def stop_listening(self):
+        with self._lock:
+            s, self._session = self._session, None
+        if s and s.get("stop"):
+            s["stop"].set()
+        self._level = 0.0
+        tr = s.get("transcript") if s else None
+        self._emit("onListening", False, tr.md.name if tr and tr.md else "")
+        return True
+
+    def _on_level(self, rms):
+        self._level = rms
+

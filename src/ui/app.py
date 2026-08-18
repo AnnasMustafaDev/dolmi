@@ -173,3 +173,17 @@ class Api:
             if s and s.get("stop"):
                 self._emit("onLevel", round(float(self._level), 4))
 
+    def _purge_old(self):
+        """'Delete after N days': transcript/summary/saved files AND inbox chats (0 = keep all)."""
+        days = self._settings["keep_days"]
+        try:
+            live_subs.delete_old_files(self._data, days)
+        except Exception as e:
+            print(f"file retention failed: {e}")
+        try:   # short-lived connection: sqlite handles are per-thread
+            db = inbox.connect(self._db_path)
+            inbox.delete_older_than(db, days)
+            db.close()
+        except Exception as e:
+            print(f"inbox retention failed: {e}")
+

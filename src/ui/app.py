@@ -330,3 +330,57 @@ class Api:
     def _on_level(self, rms):
         self._level = rms
 
+    # ------------------------------------------------------------------ meetings
+    def _meeting_path(self, name):
+        """A meeting file inside the data folder, or None (blocks ..\\ and absolute paths)."""
+        try:
+            base = self._data.resolve()
+            p = (base / str(name)).resolve()
+        except (OSError, ValueError):
+            return None
+        if p.parent != base or p.suffix != ".md" or not p.name.startswith("meeting_"):
+            return None
+        return p
+
+    def list_meetings(self):
+        out = []
+        for p in sorted(self._data.glob("meeting_*.md"), reverse=True):
+            try:
+                dt = datetime.strptime(p.stem.removeprefix("meeting_"), "%Y-%m-%d_%H-%M")
+                day, tm = f"{dt:%a %d %b %Y}", f"{dt:%H:%M}"
+            except ValueError:
+                day, tm = p.stem, ""
+            try:
+                lines = p.read_text(encoding="utf-8").count("<sub>")
+            except OSError:
+                lines = 0
+            out.append({"name": p.name, "day": day, "time": tm, "lines": lines})
+        return out
+
+    def read_meeting(self, name):
+        p = self._meeting_path(name)
+        if not p or not p.exists():
+            return []
+        # Transcript.add writes "**HH:MM:SS** {en}  \n<sub>{de}</sub>" -> groups are (ts, en, de)
+        return [{"ts": ts.strip(), "de": de.strip(), "en": en.strip()}
+                for ts, en, de in _MEETING_RE.findall(p.read_text(encoding="utf-8"))]
+
+    def delete_meeting(self, name):
+        p = self._meeting_path(name)
+        if p:
+            for f in (p, p.with_suffix(".srt")):
+                try:
+                    f.unlink()
+                except OSError:
+                    pass
+        return True
+
+    def open_data_folder(self):
+        import os
+        try:
+            self._data.mkdir(exist_ok=True)
+            os.startfile(self._data)
+        except OSError as e:
+            print(f"open folder failed: {e}")
+        return True
+

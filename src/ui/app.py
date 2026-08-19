@@ -384,3 +384,21 @@ class Api:
             print(f"open folder failed: {e}")
         return True
 
+    # ------------------------------------------------------------------ vocabulary
+    def read_vocab(self):
+        return {"vocabulary": self._read_file("vocabulary.txt"), "glossary": self._read_file("glossary.txt")}
+
+    def _read_file(self, name):
+        p = config.ROOT / name
+        return p.read_text(encoding="utf-8") if p.exists() else ""
+
+    def save_vocab(self, vocabulary=None, glossary=None):
+        """Write only the files the page actually sent (None = leave that file alone)."""
+        if vocabulary is not None:
+            (config.ROOT / "vocabulary.txt").write_text(vocabulary.rstrip() + "\n", encoding="utf-8")
+        if glossary is not None:
+            (config.ROOT / "glossary.txt").write_text(glossary.rstrip() + "\n", encoding="utf-8")
+        if self._engine:
+            self._engine.reload_terms()
+        return True
+

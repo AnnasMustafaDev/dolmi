@@ -450,3 +450,58 @@ class Api:
             except Exception as e:                 # never let one bad answer kill the loop
                 print(f"answer loop: {e}")
 
+    def _with_db(self, fn):
+        """Run fn(db) on a short-lived connection (js_api calls arrive on varying threads)."""
+        db = inbox.connect(self._db_path)
+        try:
+            return fn(db)
+        finally:
+            db.close()
+
+    def list_chats(self, search=""):
+        def q(db):
+            out = []
+            for c in inbox.list_chats(db, search or ""):
+                try:
+                    when = f"{inbox.local(c['started_at']):%a %d %b, %H:%M}"
+                except ValueError:
+                    when = c["started_at"]
+                out.append({"id": c["id"], "title": c["title"] or "Conversation", "when": when,
+                            "questions": c["questions"]})
+            return out
+        try:
+            return self._with_db(q)
+        except Exception as e:
+            print(f"list_chats failed: {e}")
+            return []
+
+    def open_chat(self, chat_id):
+        """Show a saved chat and continue it: later questions are added to it, with its Q&A as memory."""
+        def q(db):
+            return [{"q": m["question"], "a": m["answer"], "err": m["error"],
+                     "when": f"{inbox.local(m['asked_at']):%H:%M}"} for m in inbox.messages(db, int(chat_id))]
+        try:
+            msgs = self._with_db(q)
+        except Exception as e:
+            print(f"open_chat failed: {e}")
+            return []
+        self._chat_id = int(chat_id)
+        memory = []
+        for m in msgs:
+            memory += [{"role": "user", "content": m["q"]}, {"role": "assistant", "content": m["a"]}]
+        self._ai_history = memory[-assistant.HISTORY_MESSAGES:]
+        return msgs
+
+    def new_chat(self):
+        self._chat_id, self._ai_history = None, []
+        return True
+
+    def delete_chat(self, chat_id):
+        try:
+            self._with_db(lambda db: inbox.delete_chat(db, int(chat_id)))
+        except Exception as e:
+            print(f"delete_chat failed: {e}")
+        if self._chat_id == int(chat_id):
+            self.new_chat()
+        return True
+

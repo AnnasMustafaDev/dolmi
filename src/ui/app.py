@@ -402,3 +402,51 @@ class Api:
             self._engine.reload_terms()
         return True
 
+    # ------------------------------------------------------------------ assistant + inbox
+    def ask(self, question):
+        question = (question or "").strip()
+        if not question:
+            return -1
+        qid = next(self._ids)
+        with self._hist_lock:
+            meeting = [en for _, _, en in self._history[-9:] if en != question][-8:]
+        self._asks[qid] = {"q": question, "meeting": meeting}
+        self._ask_q.put(qid)
+        return qid
+
+    def _answer_loop(self):
+        db = None                                  # this thread's own sqlite connection
+        while True:
+            qid = self._ask_q.get()
+            item = self._asks.pop(qid, None)
+            if not item:
+                continue
+            try:
+                self._ui_q.put(("ask_start", qid, ""))
+                answer, err = "", ""
+                try:
+                    history = list(self._ai_history)
+                    for piece in assistant.stream_answer(
+                            self._provider(), self._ai_model(), self._ai_key(), item["q"],
+                            context=self._settings["ai_context"], history=history,
+                            length=self._settings["ai_length"], meeting=item["meeting"]):
+                        answer += piece
+                        self._ui_q.put(("ask_chunk", qid, piece))
+                    self._ai_history = (self._ai_history + [
+                        {"role": "user", "content": item["q"]},
+                        {"role": "assistant", "content": answer.strip()}])[-assistant.HISTORY_MESSAGES:]
+                except assistant.AssistantError as e:
+                    err = str(e)
+                except Exception as e:
+                    err = f"Unexpected error: {e}"
+                self._ui_q.put(("ask_done", qid, err))
+                if self._settings["save_transcripts"] and (answer or err):
+                    if db is None:
+                        db = inbox.connect(self._db_path)
+                    if self._chat_id is None:
+                        self._chat_id = inbox.start_chat(db, self._provider(), self._ai_model())
+                    inbox.add_message(db, self._chat_id, item["q"], answer, err, "typed")
+                    self._emit("onChatsChanged", self._chat_id)
+            except Exception as e:                 # never let one bad answer kill the loop
+                print(f"answer loop: {e}")
+

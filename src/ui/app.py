@@ -505,3 +505,49 @@ class Api:
             self.new_chat()
         return True
 
+    # ------------------------------------------------------------------ summary
+    def summarize(self, meeting=None):
+        """Summarize a saved meeting (Meetings tab passes its file name) or, with no name, the live
+        session. The summary file is named after its meeting so the two pair up."""
+        if meeting:
+            pairs = self.read_meeting(meeting)
+            if not pairs:
+                return {"ok": False, "message": "That meeting has no lines to summarize."}
+            lines = [f"[{p['ts']}] {p['en']}" for p in pairs]
+            stamp = str(meeting).removeprefix("meeting_").removesuffix(".md")
+        else:
+            with self._hist_lock:
+                history = list(self._history)
+            if not history:
+                return {"ok": False, "message": "Nothing to summarize yet — run a live session first."}
+            lines = [f"[{t}] {en}" for t, de, en in history]
+            tr = self._last_transcript
+            stamp = tr.md.stem.removeprefix("meeting_") if tr and tr.md else f"{datetime.now():%Y-%m-%d_%H-%M}"
+        if not self._ai_key():
+            return {"ok": False, "message": "Add an API key in Settings → Assistant first."}
+        transcript = "\n".join(lines)
+        provider, model, key, context = self._provider(), self._ai_model(), self._ai_key(), self._settings["ai_context"]
+        out_file = self._data / f"summary_{stamp}.md"
+
+        def work():
+            text, err = "", ""
+            try:
+                for piece in assistant.stream_summary(provider, model, key, transcript, context):
+                    text += piece
+                    self._ui_q.put(("sum_chunk", piece, ""))
+            except assistant.AssistantError as e:
+                err = str(e)
+            except Exception as e:
+                err = f"Unexpected error: {e}"
+            if not text.strip() and not err:
+                err = "The AI returned an empty summary."
+            if text.strip() and self._settings["save_transcripts"]:
+                try:
+                    out_file.write_text(text.strip() + "\n", encoding="utf-8")
+                except OSError as e:
+                    print(f"summary save failed: {e}")
+            self._ui_q.put(("sum_done", err, ""))
+
+        threading.Thread(target=work, daemon=True).start()
+        return {"ok": True}
+

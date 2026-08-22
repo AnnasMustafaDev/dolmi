@@ -551,3 +551,45 @@ class Api:
         threading.Thread(target=work, daemon=True).start()
         return {"ok": True}
 
+    # ------------------------------------------------------------------ overlay (lazy caption bar)
+    def show_overlay(self):
+        if not self._overlay:
+            from ui.overlay import Overlay
+            ov = Overlay(background="#16150F", on_hide=self._on_overlay_hidden)
+            self._overlay = ov
+
+            def loaded(*_):
+                self._overlay_ready = True
+                self._stealth_overlay()
+
+            def shown(*_):
+                self._stealth_overlay()
+
+            try:
+                ov.window.events.loaded += loaded
+                ov.window.events.shown += shown
+            except Exception as e:
+                print(f"overlay events: {e}")
+        else:
+            self._overlay.show()
+            self._stealth_overlay()
+        self._overlay_visible = True
+        return True
+
+    def hide_overlay(self):
+        if self._overlay:
+            self._overlay.hide()
+        self._overlay_visible = False
+        return True
+
+    def _on_overlay_hidden(self):
+        """The bar's own ✕ was pressed: keep the main window's switch in sync."""
+        self._overlay_visible = False
+        self._emit("onBar", False)
+
+    def _stealth_overlay(self):
+        """The bar never has a taskbar button, and follows invisible mode for capture."""
+        hwnd = _native_hwnd(self._overlay.window if self._overlay else None, "Dolmi overlay")
+        _set_toolwindow(hwnd, True)
+        _set_capture(hwnd, self._settings["invisible"])
+

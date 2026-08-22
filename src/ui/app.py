@@ -593,3 +593,25 @@ class Api:
         _set_toolwindow(hwnd, True)
         _set_capture(hwnd, self._settings["invisible"])
 
+    # ------------------------------------------------------------------ invisible mode
+    def toggle_invisible(self, on):
+        on = bool(on)
+        with self._settings_lock:
+            self._settings["invisible"] = on
+            config.save_settings(self._settings)
+        main = _native_hwnd(self._window, "Dolmi")
+        _set_toolwindow(main, on)
+        _set_capture(main, on)                 # last: a style change can reset the affinity
+        if self._overlay:
+            _set_capture(_native_hwnd(self._overlay.window, "Dolmi overlay"), on)
+        return on
+
+    def recover(self):
+        """Global-hotkey escape hatch: invisible off, window back, page switches in sync."""
+        self.toggle_invisible(False)
+        self._emit("onInvisible", False)
+        try:
+            self._window.show()
+            self._window.restore()
+        except Exception:
+            pass

@@ -28,3 +28,32 @@ html,body{height:100%;background:transparent;overflow:hidden;font-family:var(--u
 .grip:before{content:"";position:absolute;right:3px;bottom:3px;width:9px;height:9px;border-right:2px solid #9a917b;border-bottom:2px solid #9a917b;border-radius:0 0 3px 0}
 </style>
 </head>
+<body>
+<div class="hud">
+  <div class="bar pywebview-drag-region" id="dragbar"><span class="dot pulse" id="dot"></span><span class="nm">Dolmi</span><span class="sp"></span><span class="x" id="close" title="Hide">✕</span></div>
+  <div class="body" id="body"><div class="idle" id="idle">Listening…</div></div>
+  <div class="grip" id="grip"></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const api=()=>window.pywebview&&window.pywebview.api;
+const esc=s=>(''+s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const body=$('#body');
+function clearIdle(){ const i=$('#idle'); if(i) i.remove(); }
+window.ov={
+  idle:(t)=>{ body.innerHTML='<div class="idle">'+esc(t||'Listening…')+'</div>'; },
+  line:(de,en)=>{ clearIdle(); const d=document.createElement('div'); d.innerHTML='<div class="de">'+esc(de)+'</div><div class="en">'+esc(en)+'</div>'; body.append(d); while(body.children.length>4) body.firstChild.remove(); body.scrollTop=body.scrollHeight; },
+  draft:(de,en)=>{ clearIdle(); let dr=document.getElementById('draft'); if(!de&&!en){ if(dr)dr.remove(); return; } if(!dr){ dr=document.createElement('div'); dr.id='draft'; dr.style.opacity='.65'; body.append(dr); } dr.innerHTML='<div class="de">'+esc(de)+'</div><div class="en">'+esc(en)+'</div>'; body.scrollTop=body.scrollHeight; },
+};
+$('#close').onclick=()=>{ const a=api(); if(a&&a.hide) a.hide(); };
+/* drag: the bar is a native pywebview drag region (DPI-correct). resize: the grip, in logical
+   pixels, one resize in flight at a time so fast mouse moves don't pile up round-trips */
+$('#close').addEventListener('mousedown',e=>e.stopPropagation());
+let rz=null,busy=false,pending=null;
+function pushResize(){ if(busy||!pending)return; const a=api(); if(!a)return; const p=pending; pending=null; busy=true; a.resize(p.w,p.h).finally(()=>{busy=false;pushResize();}); }
+$('#grip').addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation(); const a=api(); if(!a)return; rz={sx:e.screenX,sy:e.screenY}; a.geometry().then(g=>{ if(rz) rz.g=g; }); });
+window.addEventListener('mousemove',e=>{ if(!rz||!rz.g)return; pending={w:rz.g.w+(e.screenX-rz.sx),h:rz.g.h+(e.screenY-rz.sy)}; pushResize(); });
+window.addEventListener('mouseup',()=>rz=null);
+</script>
+</body>
+</html>

@@ -47,3 +47,30 @@ class OverlayApi:
         return True
 
 
+class Overlay:
+    def __init__(self, background="#16150F", on_hide=None):
+        self.api = OverlayApi(on_hide)
+        self.window = webview.create_window(
+            "Dolmi overlay", url=str((WEB / "overlay.html").as_uri()), js_api=self.api,
+            width=640, height=200, x=None, y=48, frameless=True, easy_drag=False,
+            on_top=True, background_color=background, resizable=True)
+        self.api._window = self.window
+
+    def show(self):
+        try:
+            self.window.show()
+        except Exception as e:
+            print(f"overlay show failed: {e}")
+
+    def hide(self):
+        try:
+            self.window.hide()
+        except Exception as e:
+            print(f"overlay hide failed: {e}")
+
+    def emit(self, fn, *args):
+        import json
+        try:
+            self.window.evaluate_js(f"window.ov && window.ov.{fn}(" + ",".join(json.dumps(a) for a in args) + ")")
+        except Exception:
+            pass

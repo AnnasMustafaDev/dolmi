@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dolmi — Bridge (final)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --display:'Fraunces',Georgia,serif;
+  --ui:'Hanken Grotesk','Segoe UI',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+:root[data-theme="paper"]{
+  color-scheme:light;
+  --bg:#F2ECDF;--panel:#FBF7EF;--panel2:#F5EFE2;--card:#FFFFFF;
+  --ink:#241F17;--mute:#6A6250;--faint:#9A917B;--line:rgba(40,34,22,.10);--line-dash:rgba(40,34,22,.14);
+  --ac:#0E8F7E;--ac-ink:#0A6E61;--on-ac:#F4FBF8;--ac-soft:rgba(14,143,126,.10);
+  --src:#B06A2C;--src-soft:rgba(176,106,44,.10);
+  --sh:0 18px 40px -22px rgba(60,48,24,.45),0 1px 0 rgba(255,255,255,.7) inset;
+  --sh-sm:0 10px 24px -16px rgba(60,48,24,.4);
+}
+:root[data-theme="ink"]{
+  color-scheme:dark;
+  --bg:#15140E;--panel:#1F1D15;--panel2:#262318;--card:#211F17;
+  --ink:#F2ECDE;--mute:#ABA28C;--faint:#776F59;--line:rgba(255,255,255,.08);--line-dash:rgba(255,255,255,.11);
+  --ac:#2FB9A4;--ac-ink:#5ED8C4;--on-ac:#06201C;--ac-soft:rgba(47,185,164,.13);
+  --src:#E0A05C;--src-soft:rgba(224,160,92,.12);
+  --sh:0 22px 46px -24px rgba(0,0,0,.75),0 1px 0 rgba(255,255,255,.05) inset;
+  --sh-sm:0 14px 30px -20px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;overflow:hidden;transition:background .4s var(--ease)}
+button{cursor:pointer;border:0;background:none;color:inherit;font:inherit}
+input,textarea,select{font:inherit;color:inherit}
+.ic svg{width:19px;height:19px;stroke-width:1.9}
+:focus-visible{outline:2px solid var(--ac);outline-offset:3px;border-radius:10px}
+
+.app{height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);max-width:1260px;margin:0 auto;padding:0 clamp(18px,4vw,48px)}
+
+/* header */
+.top{display:flex;align-items:center;gap:18px;padding:22px 2px 16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px}
+.mark{width:38px;height:38px;border-radius:50%;border:2px solid var(--ac);display:grid;place-items:center;color:var(--ac);transition:.3s}
+.mark svg{width:21px;height:21px}
+.brand b{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:-.01em}
+.nav{display:flex;gap:1px;margin-left:10px}
+.nav button{font-size:14px;font-weight:600;color:var(--mute);padding:8px 14px;border-radius:10px;transition:.2s;position:relative}
+.nav button:hover{color:var(--ink)}
+.nav button.a{color:var(--ink)}
+.nav button.a::after{content:"";position:absolute;left:14px;right:14px;bottom:1px;height:2px;background:var(--ac);border-radius:2px}
+.top .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--mute);background:var(--panel);border:1px solid var(--line);padding:8px 13px;border-radius:999px}
+.chip b{color:var(--ac-ink);font-weight:600}
+.chip .de{color:var(--src)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:999px;transition:.2s}
+.btn.pri{background:var(--ac);color:var(--on-ac);box-shadow:0 10px 22px -12px var(--ac)}
+.btn.pri:hover{transform:translateY(-1px)}
+.btn.ghost{background:var(--panel);border:1px solid var(--line)}
+.btn.ghost.on{color:var(--ac-ink);border-color:var(--ac)}
+.btn.dark{background:var(--ink);color:var(--bg)}
+
+/* views */
+.view{display:none;min-height:0}
+.view.a{display:flex;flex-direction:column;min-height:0}
+

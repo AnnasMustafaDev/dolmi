@@ -69,3 +69,57 @@ input,textarea,select{font:inherit;color:inherit}
 .view{display:none;min-height:0}
 .view.a{display:flex;flex-direction:column;min-height:0}
 
+/* LIVE */
+#v-live.a{display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0}
+.hero{padding:24px 2px 14px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.hero .eye{font-family:var(--mono);font-size:12px;color:var(--mute);letter-spacing:.05em}
+.hero h1{font-family:var(--display);font-weight:600;font-size:clamp(32px,4vw,50px);line-height:1.02;letter-spacing:-.02em;margin-top:7px;text-wrap:balance}
+.hero h1 em{font-style:italic;color:var(--ac-ink)}
+.sess{display:flex;gap:22px;font-family:var(--mono);font-size:12.5px;color:var(--mute)}
+.sess b{display:block;font-size:20px;font-weight:600;color:var(--ink);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.sess .ac{color:var(--ac-ink)}
+
+.bridge{min-height:0;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:26px;box-shadow:var(--sh);overflow:hidden}
+.bhead{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);position:relative}
+.bhead .h{padding:14px 26px;font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.bhead .de-h{color:var(--src)}
+.bhead .en-h{color:var(--ac-ink)}
+.bhead .live-dot{width:7px;height:7px;border-radius:50%;background:var(--faint);margin-left:auto}
+.bhead.on .live-dot{background:var(--ac);box-shadow:0 0 0 0 var(--ac);animation:ping 1.6s var(--ease) infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 var(--ac-soft)}70%,100%{box-shadow:0 0 0 7px transparent}}
+.knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;color:var(--ac);z-index:3;box-shadow:var(--sh-sm);transition:.3s}
+.bhead.on .knob{background:var(--ac);color:var(--on-ac);border-color:var(--ac)}
+.knob svg{width:15px;height:15px}
+/* the scroll area; a 1px center line via background keeps the bridge continuous */
+.brows{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;
+  background:linear-gradient(var(--line),var(--line)) 50% 0/1px 100% no-repeat}
+.pair{display:grid;grid-template-columns:1fr 1fr}
+.pair .c{padding:15px 26px;border-bottom:1px dashed var(--line-dash)}
+.pair .de{color:var(--mute);font-size:15px;line-height:1.5}
+.pair .en{font-family:var(--display);font-weight:500;font-size:18px;line-height:1.42}
+.pair .ts{display:block;font-family:var(--mono);font-size:11px;color:var(--faint);margin-bottom:4px}
+.pair.cur .c{background:var(--ac-soft)}
+.pair.cur .de{color:var(--ink)}
+.pair.cur .en{color:var(--ink)}
+.brows.hidede .pair{grid-template-columns:1fr}
+.brows.hidede .de{display:none}
+.bhead.hidede .de-h{display:none}
+.pair.cur .de .ts{color:var(--src)}
+.caret{display:inline-block;width:6px;height:16px;background:var(--ac);vertical-align:-2px;margin-left:2px;animation:blink .8s infinite}
+@keyframes blink{50%{opacity:.3}}
+.idle{grid-column:1/-1;margin:auto;text-align:center;color:var(--faint);padding:40px 20px}
+.idle .ring{width:56px;height:56px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 14px;color:var(--ac);box-shadow:var(--sh-sm)}
+.idle .ring svg{width:26px;height:26px}
+.idle .big{font-family:var(--display);font-size:20px;font-weight:600;color:var(--ink);margin-bottom:4px}
+
+/* control strip */
+.strip{display:flex;align-items:center;gap:16px;padding:16px 2px 22px}
+.go{width:56px;height:56px;border-radius:50%;background:var(--ac);color:var(--on-ac);display:grid;place-items:center;box-shadow:0 14px 28px -10px var(--ac);transition:transform .2s var(--ease)}
+.go:hover{transform:scale(1.06)}.go:active{transform:scale(.95)}
+.go .ic svg{width:23px;height:23px}
+.track{flex:1;height:42px;border-radius:999px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;gap:3px;padding:0 18px;overflow:hidden}
+.track i{flex:1;height:22px;border-radius:2px;background:var(--line-dash);transform-origin:center;transform:scaleY(.2)}
+.track.on i{background:var(--faint)}.track.on i.hot{background:var(--ac)}
+.strip .status{font-family:var(--mono);font-size:12.5px;color:var(--mute);white-space:nowrap;text-align:right;min-width:150px}
+.strip .status b{color:var(--ac-ink);display:block}
+

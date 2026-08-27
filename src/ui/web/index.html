@@ -209,3 +209,39 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     <button class="btn ghost on" id="stealth"><span class="ic"><i data-lucide="shield-check" style="width:15px;height:15px"></i></span>Invisible</button>
   </header>
 
+  <!-- LIVE -->
+  <section class="view a" id="v-live">
+    <div class="hero">
+      <div>
+        <div class="eye">THU 09 OCT · ON-DEVICE · RTX 4060</div>
+        <h1 id="hero">A clear bridge between<br><em>two languages.</em></h1>
+      </div>
+      <div class="sess">
+        <div>Lines<b id="sLines">0</b></div>
+        <div>Words<b id="sWords">0</b></div>
+        <div>Lag<b class="ac" id="sLag">0.3s</b></div>
+      </div>
+    </div>
+
+    <div class="bridge">
+      <div class="bhead" id="bhead">
+        <div class="h de-h"><i data-lucide="ear" style="width:15px;height:15px"></i>HEARD · DEUTSCH</div>
+        <div class="h en-h"><i data-lucide="captions" style="width:15px;height:15px"></i>ENGLISH<span class="live-dot"></span></div>
+        <span class="knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 7l6 5-6 5"/></svg></span>
+      </div>
+      <div class="brows" id="brows">
+        <div class="idle" id="idle">
+          <div class="ring"><i data-lucide="languages"></i></div>
+          <div class="big">Ready when your meeting is</div>
+          <div>Press start — German on the left, English on the right.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="strip">
+      <button class="go" id="go" aria-label="Start translating"><span class="ic"><i data-lucide="play"></i></span></button>
+      <div class="track" id="track" aria-hidden="true"></div>
+      <div class="status" id="status">Ready<b>CUDA · large-v3-turbo</b></div>
+    </div>
+  </section>
+

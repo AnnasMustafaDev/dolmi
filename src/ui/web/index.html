@@ -284,3 +284,49 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     </div>
   </div></section>
 
+  <!-- VOCAB -->
+  <section class="view" id="v-vocab"><div class="wrap">
+    <div class="ph"><div><h2>Vocabulary</h2><p>Teach Dolmi your team's names and terms — applied from the next line on.</p></div><span class="ok"><i data-lucide="check" style="width:15px;height:15px"></i>Saved</span></div>
+    <div class="grid2">
+      <div class="card"><div class="cardh"><span class="ic"><i data-lucide="book-a"></i></span>Spelling hints (names &amp; terms)</div>
+        <textarea class="field" id="vocabBox" rows="9" placeholder="Loading…" disabled></textarea>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:12px"><button class="btn pri" id="vocabSave">Save</button><span class="ok" id="vocabStatus" style="visibility:hidden"><i data-lucide="check" style="width:14px;height:14px"></i>Saved — used from the next line</span></div></div>
+      <div class="card"><div class="cardh"><span class="ic"><i data-lucide="sparkles"></i></span>Active fixes</div>
+        <div class="chips"><span class="chipt on">geil → awesome</span><span class="chipt on">Clara = person</span><span class="chipt on">Cloud ≠ Clara</span><span class="chipt on">Lenna → Lena</span><span class="chipt on">Tobi → Tobias</span></div>
+        <div class="pair2" style="margin-top:18px;border:0;padding-bottom:0"><div class="de"><span class="t">DE</span>Das war wirklich geil mit den Knowledge Base.</div><div class="en">That was really awesome with the Knowledge Base.</div></div>
+      </div>
+    </div>
+  </div></section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="v-settings"><div class="wrap">
+    <div class="ph"><div><h2>Settings</h2><p>Speech &amp; translation run on this PC. Only the Assistant chat goes to the AI.</p></div>
+      <button class="btn dark" id="openOnb"><span class="ic"><i data-lucide="wand-sparkles" style="width:15px;height:15px"></i></span>Run setup</button></div>
+    <div class="grid2">
+      <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
+        <div class="set"><div><div class="lab">Listen to</div><div class="ps">The speaker your meeting plays through</div></div><select class="field" id="setDevice"><option value="">Default speaker</option></select></div>
+        <div class="set"><div><div class="lab">Speech model</div><div class="ps">Auto picks large-v3-turbo on your RTX 4060</div></div><select class="field" id="setModel"><option value="auto">Auto · GPU</option><option value="small">small · CPU</option><option value="medium">medium</option><option value="large-v3-turbo">large-v3-turbo</option></select></div>
+        <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Translated into English</div></div><select class="field" id="setLang"><option value="de">German</option><option value="auto">Auto-detect</option></select></div>
+        <div class="set"><div><div class="lab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
+      </div>
+      <div class="card"><div class="cardh"><span class="ic"><i data-lucide="sparkles"></i></span>Assistant</div>
+        <div class="set"><div><div class="lab">Provider</div></div><div class="seg" id="setProvider"><button data-p="openai">OpenAI</button><button data-p="claude" class="a">Claude</button></div></div>
+        <div class="set"><div><div class="lab">API key</div><div class="ps">Encrypted with Windows DPAPI</div></div>
+          <div style="display:flex;gap:8px"><input class="field" id="setKey" type="password" placeholder="sk-…" style="width:140px;font-family:var(--mono)"><button class="btn ghost" id="setTest">Test</button></div></div>
+        <div class="set"><div><div class="lab">Status</div></div><span class="ok" id="keyStatus" style="color:var(--mute)">—</span></div>
+      </div>
+      <div class="card"><div class="cardh"><span class="ic"><i data-lucide="shield-check"></i></span>Privacy &amp; stealth</div>
+        <div class="set"><div><div class="lab">Invisible mode</div><div class="ps">Hidden from screen shares and the taskbar. Ctrl+Alt+Shift+D to exit.</div></div><button class="sw on" data-sw id="swInv"></button></div>
+        <div class="set"><div><div class="lab">Subtitle bar</div><div class="ps">The floating caption bar only you see</div></div><button class="sw on" data-sw id="swBar"></button></div>
+        <div class="set"><div><div class="lab">Save transcripts</div></div><button class="sw on" data-sw id="swSave"></button></div>
+        <div class="set"><div><div class="lab">Delete after</div></div><div class="seg" id="setKeep"><button data-d="0">Never</button><button data-d="7">7d</button><button data-d="30" class="a">30d</button><button data-d="90">90d</button></div></div>
+      </div>
+      <div class="card"><div class="cardh"><span class="ic"><i data-lucide="palette"></i></span>Appearance</div>
+        <div class="set"><div><div class="lab">Theme</div><div class="ps">Paper is light, Ink is dark</div></div><div class="seg" id="theme"><button class="a" data-t="paper">Paper</button><button data-t="ink">Ink</button></div></div>
+        <div class="set"><div><div class="lab">Bar text size</div></div><input type="range" min="12" max="24" value="16" style="accent-color:var(--ac);width:160px"></div>
+      </div>
+    </div>
+  </div></section>
+
+</div>
+

@@ -339,3 +339,25 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
   </div>
 </div>
 
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const root=document.documentElement,icons=()=>window.lucide&&lucide.createIcons();
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+$$('.nav button').forEach(b=>b.onclick=()=>{ $$('.nav button').forEach(n=>n.classList.toggle('a',n===b)); $$('.view').forEach(v=>v.classList.toggle('a',v.id==='v-'+b.dataset.v)); });
+$$('[data-sw]').forEach(s=>s.onclick=()=>s.classList.toggle('on'));
+$$('.seg:not(#theme)').forEach(s=>[...s.children].forEach(b=>b.onclick=()=>[...s.children].forEach(x=>x.classList.toggle('a',x===b))));
+/* invisible mode — wired to the Python bridge (falls back to a visual toggle in a plain browser) */
+const bridge=()=>window.pywebview&&window.pywebview.api;
+function setInvisible(on){ try{ const b=bridge(); if(b&&b.toggle_invisible) b.toggle_invisible(on); }catch(e){} }
+$('#stealth').onclick=()=>{ const on=$('#stealth').classList.toggle('on'); const sw=$('#swInv'); if(sw) sw.classList.toggle('on',on); setInvisible(on); };
+if($('#swInv')) $('#swInv').onclick=()=>{ const on=$('#swInv').classList.toggle('on'); $('#stealth').classList.toggle('on',on); setInvisible(on); };
+function setTheme(t){ root.dataset.theme=t; $$('#theme button').forEach(x=>x.classList.toggle('a',x.dataset.t===t)); }
+$$('#theme button').forEach(b=>b.onclick=()=>{ setTheme(b.dataset.t); const a=window.pywebview&&window.pywebview.api; if(a) a.set_setting('theme',b.dataset.t); });
+
+/* waveform */
+const track=$('#track'),N=44; track.innerHTML=Array.from({length:N},()=>'<i></i>').join('');
+const wb=[...track.children]; let lvl=new Array(N).fill(.2),listening=false,raf=0,speaking=0;
+function wave(){for(let i=0;i<N;i++){const t=listening?(.16+Math.random()*(speaking?.82:.26)):.2;lvl[i]+=(t-lvl[i])*.35;wb[i].style.transform=`scaleY(${lvl[i].toFixed(3)})`;wb[i].classList.toggle('hot',listening&&lvl[i]>.7);}if(listening||lvl.some(l=>Math.abs(l-.2)>.01))raf=requestAnimationFrame(wave);}
+

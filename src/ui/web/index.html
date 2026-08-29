@@ -397,3 +397,23 @@ $('#go').onclick=()=>{
   else { resetFeed(); setLive(true); demoLoop(); demoTimer=setInterval(demoLoop,3600); }
 };
 
+/* onboarding */
+const STEPS=[
+ {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this PC. Only the optional Assistant chat goes to the AI.',b:''},
+ {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
+ {h:'You\'re<br><em>ready.</em>',p:'Your RTX 4060 runs large-v3-turbo, so captions are fast and accurate. Invisible mode is on.',b:'<div class="chips"><span class="chipt on">GPU · large-v3-turbo</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
+];
+let step=0;
+function render(){ const s=STEPS[step];
+  $('#onbBody').innerHTML=`<h3 class="pop">${s.h}</h3><p class="pop">${s.p}</p><div class="pop">${s.b}</div>`;
+  [...$('#steps').children].forEach((d,i)=>d.classList.toggle('on',i<=step));
+  $('#onbBack').style.visibility=step?'visible':'hidden';
+  $('#onbNext').textContent=step===STEPS.length-1?'Start using Dolmi':'Continue';
+  $$('.prov button').forEach(b=>b.onclick=()=>$$('.prov button').forEach(x=>x.classList.toggle('on',x===b))); icons();
+}
+$('#openOnb').onclick=()=>{step=0;render();$('#onb').hidden=false;};
+$('#onbNext').onclick=()=>{ if(step<STEPS.length-1){step++;render();} else $('#onb').hidden=true; };
+$('#onbBack').onclick=()=>{ if(step){step--;render();} };
+$('#onb').onclick=e=>{ if(e.target.id==='onb') $('#onb').hidden=true; };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('#onb').hidden=true; });
+

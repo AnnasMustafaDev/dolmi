@@ -482,3 +482,49 @@ $('#delChat').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ to
 let chatT; $('#chatSearch').oninput=()=>{ clearTimeout(chatT); chatT=setTimeout(loadChats,250); };
 $('#askForm').onsubmit=e=>{ e.preventDefault(); const v=$('#askInput').value.trim(); if(!v) return; $('#askInput').value=''; asrYou(v); const b=bridge(); if(b) b.ask(v); else { asrStart('demo'); asrChunk('demo','The assistant answers here when running in the app.'); } };
 
+/* ---- summary modal (opened before the request, so no early chunk is lost) ---- */
+let sumBox=null;
+function sumOpen(){ let s=document.getElementById('sumModal'); if(!s){ s=document.createElement('div'); s.id='sumModal'; s.className='scrim'; s.innerHTML='<div class="onb" style="max-width:600px"><h3 style="font-size:24px">Meeting summary</h3><div id="sumText" style="white-space:pre-wrap;margin-top:12px;max-height:50vh;overflow:auto;font-size:14px;line-height:1.6"></div><div class="foot" style="justify-content:flex-end"><button class="btn ghost" id="sumClose">Close</button></div></div>'; document.body.append(s); s.onclick=e=>{ if(e.target.id==='sumModal') s.hidden=true; }; s.querySelector('#sumClose').onclick=()=>s.hidden=true; } s.hidden=false; sumBox=s.querySelector('#sumText'); sumBox.textContent='Writing the summary…'; }
+function sumClose(){ const s=document.getElementById('sumModal'); if(s) s.hidden=true; }
+function sumChunk(p){ if(!sumBox) return; if(sumBox.textContent==='Writing the summary…') sumBox.textContent=''; sumBox.textContent+=p; sumBox.scrollTop=sumBox.scrollHeight; }
+function sumDone(err){ if(sumBox&&err) sumBox.textContent=err; }
+async function runSummary(meeting){
+  const b=bridge(); if(!b){ toast('Summaries run in the app.'); return; }
+  sumOpen();
+  try{ const r=await b.summarize(meeting||null); if(!r.ok){ sumClose(); toast(r.message); } }
+  catch(e){ sumClose(); toast('Summary failed.'); }
+}
+
+/* ---- meetings ---- */
+async function loadMeetings(){
+  const b=bridge(), list=$('#mList');
+  if(!b){ list.innerHTML='<div style="padding:16px;color:var(--faint)">Meetings appear here when running in the app.</div>'; return; }
+  const items=await b.list_meetings();
+  if(!items.length){ list.innerHTML='<div style="padding:16px;color:var(--faint)">No meetings yet.</div>'; $('#mDetail').innerHTML='<div style="margin:auto;color:var(--faint)">Nothing saved yet.</div>'; currentMeeting=null; return; }
+  const keep=items.some(m=>m.name===currentMeeting)?currentMeeting:items[0].name;
+  list.innerHTML=items.map(m=>`<button class="row${m.name===keep?' a':''}" data-n="${esc(m.name)}"><span class="t">${esc(m.day)} · ${esc(m.time)} · ${m.lines} lines</span><b>${esc(m.day)} ${esc(m.time)}</b><span>${esc(m.name)}</span></button>`).join('');
+  list.querySelectorAll('.row').forEach(r=>r.onclick=()=>{ list.querySelectorAll('.row').forEach(x=>x.classList.remove('a')); r.classList.add('a'); openMeeting(r.dataset.n); });
+  openMeeting(keep);
+}
+async function openMeeting(name){
+  const b=bridge(); if(!b) return; currentMeeting=name;
+  const pairs=await b.read_meeting(name);
+  $('#mDetail').innerHTML=pairs.length?pairs.map(p=>`<div class="pair2"><div class="de"><span class="t">DE · ${esc(p.ts)}</span>${esc(p.de)}</div><div class="en">${esc(p.en)}</div></div>`).join(''):'<div style="margin:auto;color:var(--faint)">Empty transcript.</div>';
+}
+$$('.ph .btn.ghost').forEach(btn=>{ if(btn.textContent.includes('Summarize')) btn.onclick=()=>{ if(!currentMeeting){ toast('Open a meeting first.'); return; } runSummary(currentMeeting); }; });
+
+/* ---- vocabulary (only the glossary is edited; vocabulary.txt is never overwritten from here) ---- */
+let loadedVocab=null;
+async function loadVocab(){
+  const b=bridge(), box=$('#vocabBox');
+  if(!b){ box.placeholder='Vocabulary loads when running in the app.'; return; }
+  try{ loadedVocab=await b.read_vocab(); box.value=(loadedVocab.glossary||'').trim(); box.disabled=false; box.placeholder='One term per line…'; }
+  catch(e){ box.placeholder='Could not load the vocabulary.'; }
+}
+if($('#vocabSave')) $('#vocabSave').onclick=async()=>{
+  const b=bridge(), st=$('#vocabStatus');
+  if(!b||!loadedVocab){ toast('Vocabulary has not loaded yet.'); return; }
+  await b.save_vocab(null, $('#vocabBox').value);
+  if(st){ st.style.visibility='visible'; setTimeout(()=>st.style.visibility='hidden',4000); }
+};
+

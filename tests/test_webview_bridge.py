@@ -1,0 +1,109 @@
+﻿"""Run: venv\Scripts\python.exe tests\test_webview_bridge.py
+
+Headless tests for the Dolmi webview Api (no GUI). Uses a temp data folder + temp repo files so
+nothing real is touched. Prints PASS/FAIL per check and a summary."""
+import sys, time, tempfile, shutil, inspect
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent   # repo root
+sys.path.insert(0, str(ROOT)); sys.path.insert(0, str(ROOT / "src"))
+import config
+from ui import app as app_mod
+
+results = []
+def check(name, ok, extra=""):
+    results.append(ok); print(("PASS " if ok else "FAIL ") + name + (f"  [{extra}]" if extra else ""))
+
+calls = []
+class FakeWindow:
+    def evaluate_js(self, js): calls.append(js)
+
+# sandbox: point data folder + repo files (settings/vocab) at temp dirs
+tmp_root = Path(tempfile.mkdtemp()); tmp_data = Path(tempfile.mkdtemp())
+for f in ("vocabulary.txt", "glossary.txt"):
+    shutil.copy(ROOT / f, tmp_root / f)
+config.ROOT = tmp_root; config.SETTINGS = tmp_root / "settings.json"
+config.save_settings({**config.DEFAULTS, "data_folder": str(tmp_data)})
+
+api = app_mod.Api(); api._window = FakeWindow()
+
+# 1. nothing private is exposed to page JS (pywebview exposes public attributes recursively)
+public_attrs = [k for k in vars(api) if not k.startswith("_")]
+check("no public (JS-exposed) attributes", not public_attrs, public_attrs)
+exposed = sorted(n for n, _ in inspect.getmembers(api, callable) if not n.startswith("_"))
+check("exposed API = methods only", "window" not in exposed and "toggle_invisible" in exposed, ", ".join(exposed))
+
+# 2. state
+s = api.state()
+need = {"language","showGerman","invisible","provider","providers","model","hasKey","speechModel",
+        "listening","engine","audioDevice","saveTranscripts","keepDays","overlay","theme"}
+check("state() has all keys", need <= set(s), sorted(need - set(s)))
+
+# 3. caption pump: no session -> late results dropped; with session -> emitted
+api._ui_q.put(("final", "spÃ¤t", "late")); time.sleep(0.3)
+check("late result after Stop is dropped", not any("onLine" in c for c in calls))
+api._session = {"token": object(), "stop": None, "transcript": None}
+api._ui_q.put(("final", "Ich habe den MCP getestet.", "I tested the MCP."))
+api._ui_q.put(("draft", "Wir brauchen", "We need")); time.sleep(0.4)
+j = "\n".join(calls)
+check("onLine emitted", "window.dolmi.onLine(" in j and "I tested the MCP." in j)
+check("onDraft emitted", "window.dolmi.onDraft(" in j)
+check("history captured", len(api._history) == 1 and api._history[0][2] == "I tested the MCP.")
+api._session = None
+
+# 4. start/stop token: a stale _begin must not resurrect a stopped session
+api._engine = type("E", (), {"device": "cpu", "model_name": "fake", "language": "de"})()
+tok = object(); api._session = {"token": tok, "stop": None, "transcript": None}
+api.stop_listening()
+api._begin(tok)                        # would start threads if the token check were missing
+check("stopped session not resurrected by stale _begin", api._session is None)
+api._engine = None
+
+# 5. meetings: parse + path-traversal guard
+(tmp_data / "meeting_2026-10-09_11-14.md").write_text(
+    "# Meeting\n\n**11:35:02** Awesome, no Cloud browser.  \n<sub>Geil, kein Cloud Browser.</sub>\n\n"
+    "**11:35:06** We need no code.  \n<sub>Wir brauchen keinen Code.</sub>\n\n", encoding="utf-8")
+items = api.list_meetings(); pairs = api.read_meeting("meeting_2026-10-09_11-14.md")
+check("list_meetings", len(items) == 1 and items[0]["lines"] == 2 and items[0]["time"] == "11:14")
+check("read_meeting maps de/en correctly", len(pairs) == 2 and pairs[0]["en"].startswith("Awesome") and pairs[0]["de"].startswith("Geil"))
+outside = tmp_root / "meeting_secret.md"; outside.write_text("**1** x  \n<sub>y</sub>\n", encoding="utf-8")
+check("path traversal blocked (read)", api.read_meeting("..\\" + tmp_root.name + "\\meeting_secret.md") == [] and api.read_meeting(str(outside)) == [])
+api.delete_meeting(str(outside))
+check("path traversal blocked (delete)", outside.exists())
+
+# 6. vocab: saving the glossary must never touch vocabulary.txt
+vocab_before = (tmp_root / "vocabulary.txt").read_text(encoding="utf-8")
+api.save_vocab(None, "Northwind\nMCP\nKnowledge Base")
+check("glossary saved", (tmp_root / "glossary.txt").read_text(encoding="utf-8").startswith("Northwind\nMCP"))
+check("vocabulary.txt untouched", (tmp_root / "vocabulary.txt").read_text(encoding="utf-8") == vocab_before)
+
+# 7. settings whitelist + atomic persistence
+check("whitelisted key accepted", api.set_setting("theme", "ink") and config.load_settings()["theme"] == "ink")
+check("non-whitelisted key rejected", api.set_setting("api_keys", {}) is False and api.set_setting("data_folder", "C:\\") is False)
+check("unknown provider ignored", api.set_provider("evil")["provider"] in ("claude", "openai"))
+
+# 8. summary guards (no API key in the sandbox)
+r = api.summarize("meeting_2026-10-09_11-14.md")
+check("summarize(meeting) needs a key", r["ok"] is False and "API key" in r["message"])
+check("summarize() with no live session", api.summarize()["ok"] is False)
+
+# 9. assistant chats: list / open (continues the chat) / new / delete
+import inbox
+db = inbox.connect(api._db_path)
+cid = inbox.start_chat(db, "claude", "m"); inbox.add_message(db, cid, "What was decided?", "Upload comes later.", "", "typed"); db.close()
+chats = api.list_chats()
+check("list_chats", len(chats) == 1 and chats[0]["title"] == "What was decided?" and chats[0]["questions"] == 1)
+msgs = api.open_chat(cid)
+check("open_chat returns messages + continues chat", len(msgs) == 1 and api._chat_id == cid and len(api._ai_history) == 2)
+api.new_chat(); check("new_chat resets", api._chat_id is None and api._ai_history == [])
+check("search filters", api.list_chats("nothing-matches-xyz") == [])
+api.delete_chat(cid); check("delete_chat", api.list_chats() == [])
+
+# 10. answer loop survives without a key and still reports done
+calls.clear(); api.ask("Hello?"); time.sleep(1.5)
+check("ask -> onAsk + onAnswerDone (error reported, loop alive)", any("onAsk(" in c for c in calls) and any("onAnswerDone(" in c for c in calls))
+calls.clear(); api.ask("Second?"); time.sleep(1.5)
+check("answer loop still alive for a 2nd question", any("onAnswerDone(" in c for c in calls))
+
+print(f"\n{sum(results)}/{len(results)} passed")
+

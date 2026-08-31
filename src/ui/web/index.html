@@ -528,3 +528,46 @@ if($('#vocabSave')) $('#vocabSave').onclick=async()=>{
   if(st){ st.style.visibility='visible'; setTimeout(()=>st.style.visibility='hidden',4000); }
 };
 
+/* ---- settings wiring ---- */
+function setSw(sel,on){ const e=$(sel); if(e) e.classList.toggle('on',!!on); }
+function setSegVal(sel,attr,val){ const g=$(sel); if(g)[...g.children].forEach(c=>c.classList.toggle('a',c.getAttribute(attr)===val)); }
+function applyGerman(on){ $('#brows').classList.toggle('hidede',!on); $('#bhead').classList.toggle('hidede',!on); }
+function wireSwitch(sel,key){ const e=$(sel); if(e) e.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting(key,e.classList.contains('on')); }); }
+wireSwitch('#swGerman','show_german'); wireSwitch('#swSave','save_transcripts');
+if($('#swGerman')) $('#swGerman').addEventListener('click',()=>applyGerman($('#swGerman').classList.contains('on')));
+if($('#swBar')) $('#swBar').addEventListener('click',()=>{ const b=bridge(); if(!b) return; const on=$('#swBar').classList.contains('on'); b.set_setting('overlay',on); (on?b.show_overlay():b.hide_overlay()).catch(()=>toast('Could not open the subtitle bar.')); });
+if($('#setModel')) $('#setModel').onchange=()=>{ const b=bridge(); if(b){ b.set_setting('model',$('#setModel').value); toast('Speech model set — applies after a restart.'); } };
+if($('#setLang')) $('#setLang').onchange=()=>{ const b=bridge(); if(b) b.set_setting('language',$('#setLang').value); };
+if($('#setKeep'))[...$('#setKeep').children].forEach(x=>x.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting('keep_days',+x.dataset.d); }));
+if($('#setProvider'))[...$('#setProvider').children].forEach(x=>x.addEventListener('click',async()=>{ const b=bridge(); if(b){ const s=await b.set_provider(x.dataset.p); if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':'sk-…'; if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet'; } }));
+if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey').value.trim(); const b=bridge(); if(v&&b){ b.set_key(v); $('#setKey').value=''; $('#setKey').placeholder='•••••• saved'; if($('#keyStatus')) $('#keyStatus').textContent='Key saved'; } });
+if($('#setTest')) $('#setTest').onclick=async()=>{ const b=bridge(), st=$('#keyStatus'); if(!b){ if(st) st.textContent='Runs in the app'; return; } if(st) st.textContent='Testing…'; const r=await b.test_key(); if(st) st.textContent=(r.ok?'✓ ':'✗ ')+r.message; };
+
+/* load each tab's data the first time it opens */
+$$('.nav button').forEach(btn=>btn.addEventListener('click',()=>{ const v=btn.dataset.v;
+  if(v==='meetings'&&!mLoaded){ mLoaded=true; loadMeetings(); }
+  if(v==='vocab'&&!vLoaded){ vLoaded=true; loadVocab(); }
+  if(v==='assistant'&&!aLoaded){ aLoaded=true; loadChats(); }
+}));
+
+/* boot: pull state from Python */
+async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.state();
+  setTheme(s.theme||'paper');
+  engineLabel = s.engine==='not loaded' ? 'models load on Start' : s.engine;
+  setSw('#swInv',s.invisible); $('#stealth').classList.toggle('on',s.invisible);
+  setSw('#swGerman',s.showGerman); setSw('#swSave',s.saveTranscripts); setSw('#swBar',s.overlay);
+  applyGerman(s.showGerman);
+  setSegVal('#setProvider','data-p',s.provider); setSegVal('#setKeep','data-d',String(s.keepDays));
+  if($('#setModel')) $('#setModel').value=s.speechModel;
+  if($('#setLang')) $('#setLang').value=s.language;
+  if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':'sk-…';
+  if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet';
+  $('#status').innerHTML='Ready<b>'+esc(engineLabel)+'</b>';
+  try{ const devs=await b.devices(); if($('#setDevice')){ $('#setDevice').innerHTML='<option value="">Default speaker</option>'+devs.map(d=>`<option ${d===s.audioDevice?'selected':''}>${esc(d)}</option>`).join(''); $('#setDevice').onchange=()=>b.set_setting('audio_device',$('#setDevice').value); } }catch(e){}
+}catch(e){ console.error('boot',e); } }
+if(window.pywebview&&window.pywebview.api) boot(); else window.addEventListener('pywebviewready',boot);
+
+icons(); wave();
+</script>
+</body>
+</html>

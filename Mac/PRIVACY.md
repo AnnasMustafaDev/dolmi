@@ -2,7 +2,7 @@
 
 Dolmi has no account, no telemetry and no analytics. **Speech recognition and translation run on your Mac. Your audio never leaves it.**
 
-Dolmi only uses the network in the two cases below. You start each one yourself.
+Dolmi only uses the network in the cases below. You start each one yourself.
 
 ## 1. Assistant and summaries — to the AI provider you chose (optional)
 
@@ -14,6 +14,10 @@ Live subtitles never need this. It only happens if you add an API key and then u
 That provider's own terms and privacy policy apply to this data: [Anthropic](https://www.anthropic.com/legal/privacy) · [OpenAI](https://openai.com/policies/privacy-policy/) · [Google Gemini API](https://ai.google.dev/gemini-api/terms) · [NVIDIA](https://www.nvidia.com/en-us/about-nvidia/privacy-policy/) · [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/platform/data-usage/).
 
 **To opt out:** don't add an API key. Dolmi then sends nothing to any AI provider, and subtitles work exactly the same.
+
+## Cloud captions (optional, off by default)
+
+If you set *Settings → Captions by* to Gemini, OpenAI or Cloudflare, Dolmi sends the **audio of each finished sentence** (plus your glossary terms and the previous sentence) to that provider with your own API key, and gets back the text (and, for Gemini, the translation). Audio is only sent while you are captioning, one sentence at a time. That provider's terms and privacy policy apply. Leave *Captions by* on *This computer* and no audio ever leaves your device.
 
 ## 2. Speech and translation models — downloaded from Hugging Face
 

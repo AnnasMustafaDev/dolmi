@@ -282,6 +282,12 @@ def worker(eng, audio_q, ui_q, tr, stop, detect=speech_gap):
         pause = now - last_voice
 
         finalize = pause >= PAUSE_TO_FINALIZE or dur >= MAX_UTTERANCE
+        if getattr(eng, "cloud", False):   # cloud captions: one request per finished sentence, off this thread
+            if finalize:
+                if dur > 0.8:
+                    eng.submit(buf, utt_start, now, ui_q, tr)
+                buf, utt_start = np.zeros(0, np.float32), None
+            continue
         if not finalize and (now - last_draft < DRAFT_EVERY or dur <= 0.8):
             continue   # not time for a draft yet
         de, lang = eng.transcribe(buf)

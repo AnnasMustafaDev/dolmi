@@ -332,7 +332,8 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     <div class="grid2">
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
         <div class="set"><div><div class="lab">Listen to</div><div class="ps">Everything your Mac plays, or a microphone</div></div><select class="field" id="setDevice"><option value="">All Mac audio</option></select></div>
-        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this Mac</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this Mac)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
+        <div class="set"><div><div class="lab">Captions by</div><div class="ps" id="sourceHint">Whisper on this computer — audio never leaves it</div></div><select class="field" id="setSource"><option value="local">This computer (private)</option><option value="gemini">Gemini — cloud</option><option value="openai">OpenAI — cloud</option><option value="cloudflare">Cloudflare — cloud</option></select></div>
+        <div class="set" id="modelRow"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this Mac</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this Mac)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
         <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Subtitles appear in the other language</div></div><select class="field" id="setLang"><option value="de">German → English</option><option value="en">English → German</option></select></div>
         <div class="set"><div><div class="lab" id="srcLab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
       </div>
@@ -581,6 +582,13 @@ function setBar(on){ const b=bridge(); setSw('#swBar',on); setBarBtn(on); if(!b)
 if($('#swBar')) $('#swBar').addEventListener('click',()=>setBar($('#swBar').classList.contains('on')));
 $('#barBtn').onclick=()=>setBar(!$('#barBtn').classList.contains('on'));
 if($('#setModel')) $('#setModel').onchange=()=>{ const b=bridge(); if(b){ b.set_setting('model',$('#setModel').value); toast(listening?'Speech model set — used from the next Start.':'Speech model set.'); loadModels(); } };
+/* ---- captions by: this computer (Whisper) or a cloud speech API ---- */
+const SOURCES={gemini:'Gemini',openai:'OpenAI',cloudflare:'Cloudflare Workers AI'};
+function applySource(v){ if(!$('#setSource')) return; $('#setSource').value=v; const cloud=v!=='local';
+  $('#modelRow').hidden=cloud;
+  $('#sourceHint').textContent=cloud?`Each sentence's audio goes to ${SOURCES[v]} with your API key (Settings → Assistant)`:'Whisper on this computer — audio never leaves it'; }
+if($('#setSource')) $('#setSource').onchange=async()=>{ const b=bridge(), v=$('#setSource').value; if(b) await b.set_setting('speech_source',v); applySource(v);
+  toast(v==='local'?'Captions: this computer':`Captions: ${SOURCES[v]} (cloud) — next Start`); };
 /* ---- direction: German speech -> English subtitles, or English speech -> German subtitles ---- */
 const LANG={de:{name:'German',self:'Deutsch',to:'en'},en:{name:'English',self:'English',to:'de'}};
 let curLang='de';
@@ -690,6 +698,7 @@ async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.sta
   applyGerman(s.showGerman);
   setSegVal('#setProvider','data-p',s.provider); setSegVal('#setKeep','data-d',String(s.keepDays));
   if($('#setModel')) $('#setModel').value=s.speechModel;
+  applySource(s.speechSource||'local');
   applyLang(s.language);
   applyProvider(s);
   $('#status').innerHTML='Ready<b>'+esc(engineLabel)+'</b>';

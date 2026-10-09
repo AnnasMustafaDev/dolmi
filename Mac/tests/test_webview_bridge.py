@@ -127,6 +127,12 @@ check("English speech needs the English -> German translator", "opus-en" in api.
 api._history = [("10:00:00", "We ship on Friday.", "Wir liefern am Freitag.")]
 check("the Assistant reads the English side (what was heard)", api._english("We ship on Friday.", "Wir liefern am Freitag.") == "We ship on Friday.")
 api.set_setting("language", "de")
+check("captions source must be local or a speech provider", api.set_setting("speech_source", "claude") is False
+      and api.set_setting("speech_source", "gemini") and api.state()["speechSource"] == "gemini")
+check("Gemini cloud captions need no local models", api._needed_models() == [] and api.missing_models() == [])
+api.set_setting("speech_source", "openai")
+check("OpenAI cloud captions still translate locally", api._needed_models() == ["opus-de"])
+api.set_setting("speech_source", "local")
 check("German speech: the Assistant reads the English subtitle", api._english("Wir liefern am Freitag.", "We ship on Friday.") == "We ship on Friday.")
 api._history = []
 

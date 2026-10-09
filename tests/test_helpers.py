@@ -179,3 +179,39 @@ def test_cloudflare_puts_the_account_id_in_the_endpoint():
         assistant._openai_stream = real
     assert out == "ok" and calls[0] == ("tok", "https://api.cloudflare.com/client/v4/accounts/acc123/ai/v1")
     assert missing
+
+def test_cloud_captions_send_whole_sentences_and_parse_gemini():
+    import json, queue, threading, time, numpy as np
+    import cloud_speech
+    sent = []
+    class Fake:
+        cloud = True
+        def submit(self, audio, start, end, ui_q, tr): sent.append(len(audio) / m.SR)
+    audio_q, ui_q, stop = queue.Queue(), queue.Queue(), threading.Event()
+    speaking = threading.Event(); speaking.set()
+    def detect(_): return 0.0 if speaking.is_set() else None
+    t = threading.Thread(target=m.worker, args=(Fake(), audio_q, ui_q, None, stop, detect)); t.start()
+    for i in range(30):                    # like a capture: 100 ms chunks, 1.5 s speech then silence
+        if i == 15:
+            speaking.clear()
+        audio_q.put(np.full(1600, 0.1 if speaking.is_set() else 0.0, np.float32))
+        time.sleep(0.1)
+    stop.set(); t.join()
+    assert len(sent) == 1 and sent[0] >= 1.4 and ui_q.empty()   # one whole sentence, no drafts
+
+    eng = cloud_speech.CloudEngine.__new__(cloud_speech.CloudEngine)
+    eng.provider, eng.key, eng.language, eng.model_name, eng.thinking, eng.context = "gemini", "k", "de", "gemini-3.8-flash", True, ""
+    eng.glossary, eng.vocab = "Acme", m.Vocabulary(m.Path("/nonexistent"))
+    calls = []
+    def fake_post(url, body, headers, timeout=30):
+        calls.append(body)
+        if "thinkingConfig" in body["generationConfig"]:
+            raise RuntimeError("HTTP 400: thinking level is not supported for this model")
+        text = json.dumps({"heard": "Wir starten am Montag.", "translation": "We start on Monday."})
+        return {"candidates": [{"content": {"parts": [{"text": text}]}}]}
+    real, cloud_speech._post_json = cloud_speech._post_json, fake_post
+    try:
+        assert eng.recognize(np.zeros(16000, np.float32)) == ("Wir starten am Montag.", "We start on Monday.")
+    finally:
+        cloud_speech._post_json = real
+    assert eng.thinking is False and len(calls) == 2 and "Acme" in calls[1]["contents"][0]["parts"][0]["text"]

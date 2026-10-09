@@ -102,6 +102,7 @@ Models download from Hugging Face and are cached in `%USERPROFILE%\.cache\huggin
 | `src/ui/overlay.py` | Subtitle bar window |
 | `src/ui/web/` | The UI: `index.html` (main window), `overlay.html` (subtitle bar), bundled fonts/icons |
 | `src/config.py` | Settings and where files live (`%APPDATA%\Dolmi`, `Documents\Dolmi`) |
+| `cloud_speech.py` | Optional cloud captions: Gemini (hear + translate), OpenAI or Cloudflare Whisper (hear; Opus-MT translates) |
 | `inbox.py` | Local SQLite store (`dolmi.db`) |
 | `stealth.py` | Windows window helper (`SetWindowDisplayAffinity`) |
 | `models.py` | Model catalog, PC check, download / uninstall |

@@ -24,6 +24,7 @@ import config
 import assistant
 import inbox
 import live_subs
+import cloud_speech
 
 # Win32 bits for invisible mode (stealth.py's helpers are tkinter-only; these act on a raw HWND)
 WDA_NONE = 0x00
@@ -38,7 +39,8 @@ VERSION = config.version()
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
 LANGUAGES = ("de", "en")   # German speech -> English subtitles, English speech -> German subtitles
-SETTABLE = {"language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
+SPEECH_SOURCES = ("local", *cloud_speech.PROVIDERS)   # Settings → Captions by
+SETTABLE = {"speech_source", "language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
             "overlay", "theme", "ai_length", "ai_context", "opacity", "font"}
 
 
@@ -226,21 +228,26 @@ class Api:
         return self._settings["ai_models"].get(self._provider()) or assistant.PROVIDERS[self._provider()]["model"]
 
     def _ai_key(self):
-        """The provider's key; for Cloudflare "<account id>:<token>" (empty until both are saved)."""
-        key = assistant.decrypt_key(self._settings["api_keys"].get(self._provider(), ""))
-        if key and self._provider() == "cloudflare":
+        return self._key_for(self._provider())
+
+    def _key_for(self, provider):
+        """A provider's saved key; for Cloudflare "<account id>:<token>" (empty until both are saved)."""
+        key = assistant.decrypt_key(self._settings["api_keys"].get(provider, ""))
+        if key and provider == "cloudflare":
             account = self._settings.get("cf_account", "")
             return f"{account}:{key}" if account else ""
         return key
 
     def _engine_label(self):
         e = self._engine
+        if e and getattr(e, "cloud", False):
+            return f"CLOUD · {e.model_name}"
         return f"{e.device.upper()} · {e.model_name}" if e else "not loaded"
 
     def state(self):
         s = self._settings
         return {
-            "language": s["language"], "showGerman": s["show_german"], "invisible": s["invisible"],
+            "speechSource": s.get("speech_source", "local"), "language": s["language"], "showGerman": s["show_german"], "invisible": s["invisible"],
             "saveTranscripts": s["save_transcripts"], "keepDays": s["keep_days"],
             "provider": self._provider(), "providers": {k: v["label"] for k, v in assistant.PROVIDERS.items()},
             "model": self._ai_model(), "hasKey": bool(self._ai_key()),
@@ -259,6 +266,8 @@ class Api:
             return False
         if key == "language" and value not in LANGUAGES:
             return False
+        if key == "speech_source" and value not in SPEECH_SOURCES:
+            return False
         with self._settings_lock:
             self._settings[key] = value
             config.save_settings(self._settings)
@@ -266,7 +275,7 @@ class Api:
             threading.Thread(target=self._purge_old, daemon=True).start()
         if key in ("opacity", "font"):
             self._push_overlay_style()
-        if key in ("model", "language") and not self._session:
+        if key in ("model", "language", "speech_source") and not self._session:
             self._engine = None              # next Start loads the newly chosen model/translator
         return True
 
@@ -442,15 +451,22 @@ class Api:
             if not self._engine:
                 self._emit("onEngine", "loading models…")
                 watch = self._watch_downloads(self._needed_models())
+                source = self._settings.get("speech_source", "local")
                 try:
-                    self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
-                                                    self._settings["language"])
+                    if source == "local":
+                        self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
+                                                        self._settings["language"])
+                    else:
+                        model = self._settings["ai_models"].get(source) or (
+                            assistant.PROVIDERS[source]["model"] if source == "gemini" else "")
+                        self._engine = cloud_speech.CloudEngine(source, self._key_for(source),
+                                                                self._settings["language"], model)
                 except Exception as e:
                     watch.set()
                     with self._lock:
                         if self._alive(token):
                             self._session = None
-                    self._emit("onError", f"Could not load models: {e}")
+                    self._emit("onError", f"Could not start captions: {e}")
                     self._emit("onStopped")
                     return
                 watch.set()
@@ -507,9 +523,11 @@ class Api:
     def _needed_models(self):
         """The speech model and translator the next Start will use."""
         import models
+        source, lang = self._settings.get("speech_source", "local"), self._settings["language"]
+        if source == "gemini":
+            return []                                 # Gemini hears and translates: nothing local
         speech = self._settings["model"] if self._settings["model"] != "auto" else self._auto_speech()
-        lang = self._settings["language"]
-        return [k for k in (speech, models.translator_key(lang)) if k]
+        return [k for k in ((speech if source == "local" else None), models.translator_key(lang)) if k]
 
     def missing_models(self):
         """The models the next Start needs that aren't on disk yet."""

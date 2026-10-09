@@ -46,8 +46,13 @@ input,textarea,select{font:inherit;color:inherit}
 /* header */
 .top{display:flex;align-items:center;gap:18px;padding:22px 2px 16px;border-bottom:1px solid var(--line)}
 .brand{display:flex;align-items:center;gap:11px}
-.mark{width:38px;height:38px;border-radius:50%;border:2px solid var(--ac);display:grid;place-items:center;color:var(--ac);transition:.3s}
-.mark svg{width:21px;height:21px}
+.logo{width:36px;height:36px;border-radius:10px;display:block}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mrow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.mrow:last-child{border:0}.mrow .nm{font-weight:600}.mrow .sub{font-size:12.5px;color:var(--mute)}
+.mtag{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.mtag.ok{color:var(--ac-ink);border-color:var(--ac)}.mtag.warn{color:var(--src);border-color:var(--src)}.warnt{color:var(--src)}
+.mbar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden;max-width:260px}.mbar i{display:block;height:100%;width:0;background:var(--ac);transition:width .4s}
 .brand b{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:-.01em}
 .nav{display:flex;gap:1px;margin-left:10px}
 .nav button{font-size:14px;font-weight:600;color:var(--mute);padding:8px 14px;border-radius:10px;transition:.2s;position:relative}
@@ -196,7 +201,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
 <div class="app">
 
   <header class="top">
-    <div class="brand"><span class="mark" id="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M9 6l-5 6 5 6"/><path d="M15 6l5 6-5 6"/></svg></span><b>Dolmi</b></div>
+    <div class="brand"><img class="logo" src="dolmi.png" alt=""><b>Dolmi</b></div>
     <nav class="nav">
       <button class="a" data-v="live">Live</button>
       <button data-v="meetings">Meetings</button>
@@ -213,7 +218,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
   <section class="view a" id="v-live">
     <div class="hero">
       <div>
-        <div class="eye">THU 09 OCT · ON-DEVICE · RTX 4060</div>
+        <div class="eye" id="eye">ON THIS PC</div>
         <h1 id="hero">A clear bridge between<br><em>two languages.</em></h1>
       </div>
       <div class="sess">
@@ -241,14 +246,20 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     <div class="strip">
       <button class="go" id="go" aria-label="Start translating"><span class="ic"><i data-lucide="play"></i></span></button>
       <div class="track" id="track" aria-hidden="true"></div>
-      <div class="status" id="status">Ready<b>CUDA · large-v3-turbo</b></div>
+      <div class="status" id="status">Ready<b>models load on Start</b></div>
     </div>
   </section>
 
   <!-- MEETINGS -->
   <section class="view" id="v-meetings"><div class="wrap" style="display:flex;flex-direction:column">
     <div class="ph"><div><h2>Meetings</h2><p>Every session saved on this PC, in both languages. Removed after 30 days.</p></div>
-      <button class="btn ghost"><span class="ic"><i data-lucide="file-text" style="width:15px;height:15px"></i></span>Summarize</button></div>
+      <div class="acts">
+        <button class="btn ghost" id="mArchView" title="Show archived meetings"><span class="ic"><i data-lucide="archive" style="width:15px;height:15px"></i></span>Archived</button>
+        <button class="btn ghost" id="mCopy" title="Copy the whole transcript"><span class="ic"><i data-lucide="copy" style="width:15px;height:15px"></i></span>Copy</button>
+        <button class="btn ghost" id="mArchive"><span class="ic"><i data-lucide="archive-restore" style="width:15px;height:15px"></i></span><span>Archive</span></button>
+        <button class="btn ghost" id="mDelete"><span class="ic"><i data-lucide="trash-2" style="width:15px;height:15px"></i></span>Delete</button>
+        <button class="btn ghost"><span class="ic"><i data-lucide="file-text" style="width:15px;height:15px"></i></span>Summarize</button>
+      </div></div>
     <div class="grid">
       <div class="card list" id="mList">
         <div style="padding:16px;color:var(--faint);font-size:13px">Loading meetings…</div>
@@ -262,13 +273,17 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
   <!-- ASSISTANT -->
   <section class="view" id="v-assistant"><div class="wrap" style="display:flex;flex-direction:column">
     <div class="ph"><div><h2>Assistant</h2><p>Ask about the meeting. It reads the live transcript — only this chat goes to the AI.</p></div>
-      <span class="ok"><i data-lucide="shield-check" style="width:15px;height:15px"></i>Private</span></div>
+      <div class="acts">
+        <button class="btn ghost" id="aArchView" title="Show archived chats"><span class="ic"><i data-lucide="archive" style="width:15px;height:15px"></i></span>Archived</button>
+        <button class="btn ghost" id="aCopy" title="Copy the whole chat"><span class="ic"><i data-lucide="copy" style="width:15px;height:15px"></i></span>Copy</button>
+        <button class="btn ghost" id="aArchive"><span class="ic"><i data-lucide="archive-restore" style="width:15px;height:15px"></i></span><span>Archive</span></button>
+        <button class="btn ghost" id="delChat"><span class="ic"><i data-lucide="trash-2" style="width:15px;height:15px"></i></span>Delete</button>
+      </div></div>
     <div class="grid">
       <div class="card list">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
           <label class="search" style="flex:1;margin:0"><i data-lucide="search" style="width:15px;height:15px"></i><input id="chatSearch" placeholder="Search chats"></label>
           <button class="btn pri" id="newChat" title="New chat" style="padding:9px 11px"><span class="ic"><i data-lucide="plus" style="width:16px;height:16px"></i></span></button>
-          <button class="btn ghost" id="delChat" title="Delete selected chat" style="padding:9px 11px"><span class="ic"><i data-lucide="trash-2" style="width:16px;height:16px"></i></span></button>
         </div>
         <div id="aList" style="display:flex;flex-direction:column;gap:5px;overflow:auto;min-height:0"><div style="padding:16px;color:var(--faint);font-size:13px">No chats yet.</div></div>
       </div>
@@ -305,7 +320,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     <div class="grid2">
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
         <div class="set"><div><div class="lab">Listen to</div><div class="ps">The speaker your meeting plays through</div></div><select class="field" id="setDevice"><option value="">Default speaker</option></select></div>
-        <div class="set"><div><div class="lab">Speech model</div><div class="ps">Auto picks large-v3-turbo on your RTX 4060</div></div><select class="field" id="setModel"><option value="auto">Auto · GPU</option><option value="small">small · CPU</option><option value="medium">medium</option><option value="large-v3-turbo">large-v3-turbo</option></select></div>
+        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this PC</div></div><select class="field" id="setModel"><option value="auto">Auto · GPU</option><option value="small">small · CPU</option><option value="medium">medium</option><option value="large-v3-turbo">large-v3-turbo</option></select></div>
         <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Translated into English</div></div><select class="field" id="setLang"><option value="de">German</option><option value="auto">Auto-detect</option></select></div>
         <div class="set"><div><div class="lab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
       </div>
@@ -323,7 +338,13 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="palette"></i></span>Appearance</div>
         <div class="set"><div><div class="lab">Theme</div><div class="ps">Paper is light, Ink is dark</div></div><div class="seg" id="theme"><button class="a" data-t="paper">Paper</button><button data-t="ink">Ink</button></div></div>
-        <div class="set"><div><div class="lab">Bar text size</div></div><input type="range" min="12" max="24" value="16" style="accent-color:var(--ac);width:160px"></div>
+        <div class="set"><div><div class="lab">Subtitle bar opacity</div><div class="ps">Lower lets the window behind show through</div></div><div style="display:flex;gap:10px;align-items:center"><input type="range" id="setOpacity" min="30" max="100" value="88" style="accent-color:var(--ac);width:150px"><span class="mtag" id="setOpacityVal">88%</span></div></div>
+        <div class="set"><div><div class="lab">Subtitle text size</div></div><div style="display:flex;gap:10px;align-items:center"><input type="range" id="setFont" min="14" max="40" value="22" style="accent-color:var(--ac);width:150px"><span class="mtag" id="setFontVal">22 px</span></div></div>
+      </div>
+      <div class="card" style="grid-column:1/-1"><div class="cardh"><span class="ic"><i data-lucide="cpu"></i></span>This PC &amp; models</div>
+        <div class="ps" id="pcLine" style="margin-bottom:6px">Checking this PC…</div>
+        <div id="modelList"><div class="ps">Loading models…</div></div>
+        <div class="set"><div><div class="lab">Model folder</div><div class="ps" id="modelDir">—</div></div><button class="btn ghost" id="openModels">Open</button></div>
       </div>
     </div>
   </div></section>
@@ -362,7 +383,7 @@ const wb=[...track.children]; let lvl=new Array(N).fill(.2),listening=false,raf=
 function wave(){for(let i=0;i<N;i++){const t=listening?(.16+Math.random()*(speaking?.82:.26)):.2;lvl[i]+=(t-lvl[i])*.35;wb[i].style.transform=`scaleY(${lvl[i].toFixed(3)})`;wb[i].classList.toggle('hot',listening&&lvl[i]>.7);}if(listening||lvl.some(l=>Math.abs(l-.2)>.01))raf=requestAnimationFrame(wave);}
 
 /* ---- live caption rendering ---- */
-let lines=0,words=0,draftEl=null,engineLabel='CUDA · large-v3-turbo'; const brows=$('#brows');
+let lines=0,words=0,draftEl=null,engineLabel='models load on Start'; const brows=$('#brows');
 const idleHTML=$('#idle')?$('#idle').outerHTML:'';
 function showIdle(){ if(!document.getElementById('idle')&&idleHTML){ brows.insertAdjacentHTML('beforeend',idleHTML); icons(); } }
 function clearIdle(){ const i=document.getElementById('idle'); if(i) i.remove(); }
@@ -401,11 +422,11 @@ $('#go').onclick=()=>{
 const STEPS=[
  {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this PC. Only the optional Assistant chat goes to the AI.',b:''},
  {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
- {h:'You\'re<br><em>ready.</em>',p:'Your RTX 4060 runs large-v3-turbo, so captions are fast and accurate. Invisible mode is on.',b:'<div class="chips"><span class="chipt on">GPU · large-v3-turbo</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
+ {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this PC: {PC}. The first Start downloads the speech model once — see Settings → This PC &amp; models.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
 ];
 let step=0;
 function render(){ const s=STEPS[step];
-  $('#onbBody').innerHTML=`<h3 class="pop">${s.h}</h3><p class="pop">${s.p}</p><div class="pop">${s.b}</div>`;
+  $('#onbBody').innerHTML=`<h3 class="pop">${s.h}</h3><p class="pop">${s.p.replace('{PC}',pcSummary)}</p><div class="pop">${s.b.replace('{MODEL}',modelChip)}</div>`;
   [...$('#steps').children].forEach((d,i)=>d.classList.toggle('on',i<=step));
   $('#onbBack').style.visibility=step?'visible':'hidden';
   $('#onbNext').textContent=step===STEPS.length-1?'Start using Dolmi':'Continue';
@@ -442,7 +463,9 @@ window.dolmi={
   onSummaryDone:(err)=>sumDone(err),
   onInvisible:(on)=>{ setSw('#swInv',on); $('#stealth').classList.toggle('on',!!on); },
   onBar:(on)=>setSw('#swBar',on),
-  onChatsChanged:(id)=>{ currentChat=id; if(aLoaded) loadChats(); },
+  onChatsChanged:(id)=>{ currentChat=id; if(aLoaded&&!aArch) loadChats(); },
+  onModelProgress:(k,mb,total)=>{ const r=[...document.querySelectorAll('.mrow')].find(x=>x.dataset.k===k); if(!r) return; const bar=r.querySelector('.mbar'); bar.hidden=false; const pct=Math.min(100,Math.round(mb/total*100)); bar.querySelector('i').style.width=pct+'%'; r.querySelector(':scope > .mtag').textContent=pct+'%'; },
+  onModelDone:(k,err)=>{ toast(err||'Model downloaded'); loadModels(); },
 };
 
 /* ---- assistant: chat list + conversation ---- */
@@ -467,18 +490,18 @@ function renderChat(msgs){
 async function loadChats(){
   const b=bridge(), list=$('#aList');
   if(!b){ list.innerHTML='<div style="padding:16px;color:var(--faint);font-size:13px">Chats appear here when running in the app.</div>'; return; }
-  const items=await b.list_chats($('#chatSearch').value||'');
-  if(!items.length){ list.innerHTML='<div style="padding:16px;color:var(--faint);font-size:13px">No chats yet — ask something.</div>'; return; }
+  const items=await b.list_chats($('#chatSearch').value||'', aArch);
+  if(!items.length){ list.innerHTML='<div style="padding:16px;color:var(--faint);font-size:13px">'+(aArch?'No archived chats.':'No chats yet — ask something.')+'</div>'; return; }
   list.innerHTML=items.map(c=>`<button class="row${c.id===currentChat?' a':''}" data-id="${c.id}"><span class="t">${esc(c.when)} · ${c.questions} Q</span><b>${esc(c.title.length>50?c.title.slice(0,48)+'…':c.title)}</b></button>`).join('');
   list.querySelectorAll('.row').forEach(r=>r.onclick=()=>openChat(+r.dataset.id));
 }
 async function openChat(id){
   const b=bridge(); if(!b) return;
   currentChat=id; $$('#aList .row').forEach(r=>r.classList.toggle('a',+r.dataset.id===id));
-  renderChat(await b.open_chat(id));
+  currentMsgs=await b.open_chat(id); renderChat(currentMsgs);
 }
 $('#newChat').onclick=async()=>{ const b=bridge(); if(b) await b.new_chat(); currentChat=null; $$('#aList .row').forEach(r=>r.classList.remove('a')); asrIdle('New chat — ask about the meeting below.'); $('#askInput').focus(); };
-$('#delChat').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Select a chat first.'); return; } await b.delete_chat(currentChat); currentChat=null; asrIdle('Chat deleted.'); loadChats(); };
+$('#delChat').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Open a chat first.'); return; } if(!confirm('Delete this chat permanently?')) return; await b.delete_chat(currentChat); currentChat=null; currentMsgs=[]; asrIdle('Chat deleted.'); loadChats(); };
 let chatT; $('#chatSearch').oninput=()=>{ clearTimeout(chatT); chatT=setTimeout(loadChats,250); };
 $('#askForm').onsubmit=e=>{ e.preventDefault(); const v=$('#askInput').value.trim(); if(!v) return; $('#askInput').value=''; asrYou(v); const b=bridge(); if(b) b.ask(v); else { asrStart('demo'); asrChunk('demo','The assistant answers here when running in the app.'); } };
 
@@ -499,8 +522,8 @@ async function runSummary(meeting){
 async function loadMeetings(){
   const b=bridge(), list=$('#mList');
   if(!b){ list.innerHTML='<div style="padding:16px;color:var(--faint)">Meetings appear here when running in the app.</div>'; return; }
-  const items=await b.list_meetings();
-  if(!items.length){ list.innerHTML='<div style="padding:16px;color:var(--faint)">No meetings yet.</div>'; $('#mDetail').innerHTML='<div style="margin:auto;color:var(--faint)">Nothing saved yet.</div>'; currentMeeting=null; return; }
+  const items=await b.list_meetings(mArch);
+  if(!items.length){ list.innerHTML='<div style="padding:16px;color:var(--faint)">'+(mArch?'No archived meetings.':'No meetings yet.')+'</div>'; currentPairs=[]; $('#mDetail').innerHTML='<div style="margin:auto;color:var(--faint)">Nothing saved yet.</div>'; currentMeeting=null; return; }
   const keep=items.some(m=>m.name===currentMeeting)?currentMeeting:items[0].name;
   list.innerHTML=items.map(m=>`<button class="row${m.name===keep?' a':''}" data-n="${esc(m.name)}"><span class="t">${esc(m.day)} · ${esc(m.time)} · ${m.lines} lines</span><b>${esc(m.day)} ${esc(m.time)}</b><span>${esc(m.name)}</span></button>`).join('');
   list.querySelectorAll('.row').forEach(r=>r.onclick=()=>{ list.querySelectorAll('.row').forEach(x=>x.classList.remove('a')); r.classList.add('a'); openMeeting(r.dataset.n); });
@@ -508,7 +531,7 @@ async function loadMeetings(){
 }
 async function openMeeting(name){
   const b=bridge(); if(!b) return; currentMeeting=name;
-  const pairs=await b.read_meeting(name);
+  const pairs=await b.read_meeting(name); currentPairs=pairs;
   $('#mDetail').innerHTML=pairs.length?pairs.map(p=>`<div class="pair2"><div class="de"><span class="t">DE · ${esc(p.ts)}</span>${esc(p.de)}</div><div class="en">${esc(p.en)}</div></div>`).join(''):'<div style="margin:auto;color:var(--faint)">Empty transcript.</div>';
 }
 $$('.ph .btn.ghost').forEach(btn=>{ if(btn.textContent.includes('Summarize')) btn.onclick=()=>{ if(!currentMeeting){ toast('Open a meeting first.'); return; } runSummary(currentMeeting); }; });
@@ -543,11 +566,51 @@ if($('#setProvider'))[...$('#setProvider').children].forEach(x=>x.addEventListen
 if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey').value.trim(); const b=bridge(); if(v&&b){ b.set_key(v); $('#setKey').value=''; $('#setKey').placeholder='•••••• saved'; if($('#keyStatus')) $('#keyStatus').textContent='Key saved'; } });
 if($('#setTest')) $('#setTest').onclick=async()=>{ const b=bridge(), st=$('#keyStatus'); if(!b){ if(st) st.textContent='Runs in the app'; return; } if(st) st.textContent='Testing…'; const r=await b.test_key(); if(st) st.textContent=(r.ok?'✓ ':'✗ ')+r.message; };
 
+/* ---- copy / archive / delete ---- */
+let mArch=false,aArch=false,currentPairs=[],currentMsgs=[],pcSummary='this PC',modelChip='Speech: auto';
+async function copyText(t){ const b=bridge(); let ok=false; if(b){ try{ ok=await b.copy_text(t); }catch(e){} } if(!ok){ try{ await navigator.clipboard.writeText(t); ok=true; }catch(e){} } toast(ok?'Copied to clipboard':'Could not copy'); }
+function meetingText(){ return currentPairs.map(p=>`[${p.ts}] ${p.en}\n        ${p.de}`).join('\n\n'); }
+function chatText(){ return currentMsgs.map(m=>`You (${m.when}): ${m.q}\nAssistant: ${m.err||m.a}`).join('\n\n'); }
+function archLabel(btn,arch){ const s=btn.querySelector(':scope > span:last-child'); if(s) s.textContent=arch?'Unarchive':'Archive'; }
+$('#mArchView').onclick=()=>{ mArch=!mArch; $('#mArchView').classList.toggle('on',mArch); archLabel($('#mArchive'),mArch); currentMeeting=null; loadMeetings(); };
+$('#mCopy').onclick=()=>{ if(!currentPairs.length){ toast('Open a meeting first.'); return; } copyText(meetingText()); };
+$('#mArchive').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } await b.archive_meeting(currentMeeting,!mArch); toast(mArch?'Meeting restored':'Meeting archived'); currentMeeting=null; loadMeetings(); };
+$('#mDelete').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } if(!confirm('Delete this meeting transcript permanently?')) return; await b.delete_meeting(currentMeeting); toast('Meeting deleted'); currentMeeting=null; loadMeetings(); };
+$('#aArchView').onclick=()=>{ aArch=!aArch; $('#aArchView').classList.toggle('on',aArch); archLabel($('#aArchive'),aArch); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Archived chats — open one to read it.':'Ask about the meeting below.'); loadChats(); };
+$('#aCopy').onclick=()=>{ if(!currentMsgs.length){ toast('Open a chat first.'); return; } copyText(chatText()); };
+$('#aArchive').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Open a chat first.'); return; } await b.archive_chat(currentChat,!aArch); if(!aArch) await b.new_chat(); toast(aArch?'Chat restored':'Chat archived'); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Chat restored.':'Chat archived.'); loadChats(); };
+
+/* ---- this PC & models ---- */
+async function applyPc(){ const b=bridge(); if(!b) return; const pc=await b.pc_info();
+  const gpuShort=(pc.gpu_name||'NVIDIA GPU').replace(/^NVIDIA\s+(GeForce\s+)?/i,'');
+  pcSummary=`${pc.gpu?gpuShort:'no NVIDIA GPU'} · ${pc.ram_gb} GB RAM · ${pc.cores} CPU threads`;
+  modelChip=pc.gpu?'GPU · large-v3-turbo':'CPU · small';
+  $('#eye').textContent='ON THIS PC · '+(pc.gpu?gpuShort.toUpperCase():'CPU ONLY');
+  if($('#modelHint')) $('#modelHint').textContent=pc.gpu?`Auto picks large-v3-turbo on your ${gpuShort}`:'No usable NVIDIA GPU — Auto picks Small, which runs on the CPU';
+  if($('#pcLine')) $('#pcLine').textContent=`Detected: ${pcSummary}. `+(pc.gpu?'Speech runs on the GPU.':'Speech runs on the CPU.')+' Models download once, on first use or from here.';
+  if($('#modelDir')) $('#modelDir').textContent=pc.model_dir+' — shared by every Dolmi install for this Windows user';
+}
+function fmtMb(mb){ return mb>=1000?(mb/1000).toFixed(1)+' GB':mb+' MB'; }
+async function loadModels(){ const b=bridge(), box=$('#modelList'); if(!box) return; if(!b){ box.innerHTML='<div class="ps">Models are managed when running in the app.</div>'; return; }
+  const ms=await b.list_models();
+  box.innerHTML=ms.map(m=>`<div class="mrow" data-k="${esc(m.key)}"><div><div class="nm">${esc(m.name)} ${m.needed?'<span class="mtag ok">used</span>':''} ${m.loaded?'<span class="mtag">loaded</span>':''}</div><div class="sub">${m.kind==='speech'?'Speech':'Translation'} · ${fmtMb(m.sizeMb)} · <span class="${m.fitOk?'':'warnt'}">${esc(m.fit)}</span></div><div class="mbar" ${m.downloading?'':'hidden'}><i></i></div></div><span class="mtag ${m.installed?'ok':'warn'}">${m.downloading?'downloading…':m.installed?'installed':'not downloaded'}</span><button class="btn ghost" data-act="${m.installed?'remove':'download'}" ${m.downloading?'disabled':''}>${m.installed?'Remove':'Download'}</button></div>`).join('');
+  box.querySelectorAll('button[data-act]').forEach(btn=>btn.onclick=async()=>{ const k=btn.closest('.mrow').dataset.k;
+    if(btn.dataset.act==='download'){ await b.download_model(k); loadModels(); }
+    else { if(!confirm('Remove this model from disk? It downloads again when needed.')) return; const r=await b.remove_model(k); if(!r.ok) toast(r.message); loadModels(); } });
+}
+$('#openModels').onclick=()=>{ const b=bridge(); if(b) b.open_model_folder(); };
+
+/* ---- subtitle bar opacity + text size ---- */
+function setRange(sel,v){ const e=$(sel); if(e&&v!=null){ e.value=v; const o=$(sel+'Val'); if(o) o.textContent=v+(sel==='#setOpacity'?'%':' px'); } }
+function wireRange(sel,key,conv){ const e=$(sel); if(!e) return; let tm; e.addEventListener('input',()=>{ setRange(sel,e.value); clearTimeout(tm); tm=setTimeout(()=>{ const b=bridge(); if(b) b.set_setting(key,conv(+e.value)); },150); }); }
+wireRange('#setOpacity','opacity',v=>v/100); wireRange('#setFont','font',v=>v);
+
 /* load each tab's data the first time it opens */
 $$('.nav button').forEach(btn=>btn.addEventListener('click',()=>{ const v=btn.dataset.v;
   if(v==='meetings'&&!mLoaded){ mLoaded=true; loadMeetings(); }
   if(v==='vocab'&&!vLoaded){ vLoaded=true; loadVocab(); }
   if(v==='assistant'&&!aLoaded){ aLoaded=true; loadChats(); }
+  if(v==='settings') loadModels();
 }));
 
 /* boot: pull state from Python */
@@ -563,6 +626,8 @@ async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.sta
   if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':'sk-…';
   if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet';
   $('#status').innerHTML='Ready<b>'+esc(engineLabel)+'</b>';
+  setRange('#setFont',s.font); setRange('#setOpacity',Math.round(s.opacity*100));
+  applyPc();
   try{ const devs=await b.devices(); if($('#setDevice')){ $('#setDevice').innerHTML='<option value="">Default speaker</option>'+devs.map(d=>`<option ${d===s.audioDevice?'selected':''}>${esc(d)}</option>`).join(''); $('#setDevice').onchange=()=>b.set_setting('audio_device',$('#setDevice').value); } }catch(e){}
 }catch(e){ console.error('boot',e); } }
 if(window.pywebview&&window.pywebview.api) boot(); else window.addEventListener('pywebviewready',boot);

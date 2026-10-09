@@ -53,7 +53,8 @@ class Overlay:
         self.window = webview.create_window(
             "Dolmi overlay", url=str((WEB / "overlay.html").as_uri()), js_api=self.api,
             width=640, height=200, x=None, y=48, frameless=True, easy_drag=False,
-            on_top=True, background_color=background, resizable=True)
+            on_top=True, background_color=background, resizable=True,
+            transparent=True)   # the glass background's opacity is a setting; the desktop shows through
         self.api._window = self.window
 
     def show(self):

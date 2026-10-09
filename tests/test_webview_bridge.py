@@ -19,13 +19,20 @@ class FakeWindow:
     def evaluate_js(self, js): calls.append(js)
 
 # sandbox: point data folder + repo files (settings/vocab) at temp dirs
-tmp_root = Path(tempfile.mkdtemp()); tmp_data = Path(tempfile.mkdtemp())
-for f in ("vocabulary.txt", "glossary.txt"):
+tmp_root = Path(tempfile.mkdtemp()); tmp_data = Path(tempfile.mkdtemp()); tmp_cfg = Path(tempfile.mkdtemp()) / "Dolmi"
+for f in ("vocabulary.example.txt", "glossary.example.txt"):
     shutil.copy(ROOT / f, tmp_root / f)
-config.ROOT = tmp_root; config.SETTINGS = tmp_root / "settings.json"
+(tmp_root / "glossary.txt").write_text("OldRootTerm" + chr(10), encoding="utf-8")   # a user's file in the old location
+config.ROOT = tmp_root; config.CONFIG = tmp_cfg; config.SETTINGS = tmp_cfg / "settings.json"
 config.save_settings({**config.DEFAULTS, "data_folder": str(tmp_data)})
 
 api = app_mod.Api(); api._window = FakeWindow()
+
+# 0. config lives in %APPDATA%\Dolmi: old files copied over once, missing ones seeded from examples
+check("old glossary copied to the config folder", (tmp_cfg / "glossary.txt").read_text(encoding="utf-8") == "OldRootTerm" + chr(10))
+check("vocabulary seeded from the example", (tmp_cfg / "vocabulary.txt").exists())
+check("settings saved in the config folder, not the program folder", (tmp_cfg / "settings.json").exists() and not (tmp_root / "settings.json").exists())
+check("version reported", bool(api.state()["version"]))
 
 # 1. nothing private is exposed to page JS (pywebview exposes public attributes recursively)
 public_attrs = [k for k in vars(api) if not k.startswith("_")]
@@ -72,10 +79,10 @@ api.delete_meeting(str(outside))
 check("path traversal blocked (delete)", outside.exists())
 
 # 6. vocab: saving the glossary must never touch vocabulary.txt
-vocab_before = (tmp_root / "vocabulary.txt").read_text(encoding="utf-8")
+vocab_before = (tmp_cfg / "vocabulary.txt").read_text(encoding="utf-8")
 api.save_vocab(None, "Northwind\nMCP\nKnowledge Base")
-check("glossary saved", (tmp_root / "glossary.txt").read_text(encoding="utf-8").startswith("Northwind\nMCP"))
-check("vocabulary.txt untouched", (tmp_root / "vocabulary.txt").read_text(encoding="utf-8") == vocab_before)
+check("glossary saved", (tmp_cfg / "glossary.txt").read_text(encoding="utf-8").startswith("Northwind\nMCP"))
+check("vocabulary.txt untouched", (tmp_cfg / "vocabulary.txt").read_text(encoding="utf-8") == vocab_before)
 
 # 7. settings whitelist + atomic persistence
 check("whitelisted key accepted", api.set_setting("theme", "ink") and config.load_settings()["theme"] == "ink")

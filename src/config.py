@@ -1,7 +1,14 @@
-"""Settings, .env and data-folder helpers for Dolmi's webview UI.
+"""Where Dolmi keeps things, and its settings.
 
-Reads the same settings.json, .env, vocabulary.txt and glossary.txt as the existing tkinter app, so
-both UIs share one configuration and one data folder.
+Nothing the app writes lives next to the program, so it also works from Program Files (an all-users
+install) and survives upgrades, which replace the program folder:
+
+    settings.json, .env, vocabulary.txt, glossary.txt   %APPDATA%\\Dolmi           (CONFIG)
+    transcripts, summaries, inbox (dolmi.db)            Documents\\Dolmi           (data_folder)
+    dolmi.log                                           %LOCALAPPDATA%\\Dolmi      (LOGS)
+    speech/translation models                           %USERPROFILE%\\.cache\\huggingface
+
+On first run, files from the old location (the repo/program folder) are copied over, so nothing is lost.
 """
 import copy
 import ctypes
@@ -10,8 +17,14 @@ import os
 import shutil
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent      # repo root (dolmi/)
-SETTINGS = ROOT / "settings.json"
+ROOT = Path(__file__).resolve().parent.parent      # program folder: repo root, or {app}\app when installed
+CONFIG = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming") / "Dolmi"
+LOGS = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "Dolmi"
+SETTINGS = CONFIG / "settings.json"
+USER_FILES = ("settings.json", ".env", "vocabulary.txt", "glossary.txt")
+
+# live_subs reads vocabulary.txt/glossary.txt from here too
+os.environ["DOLMI_CONFIG"] = str(CONFIG)
 
 DEFAULTS = {
     "model": "auto", "device": "auto", "font": 22, "opacity": 0.88,
@@ -23,10 +36,22 @@ DEFAULTS = {
 }
 
 
+def prepare():
+    """Create the config folder; copy the user's files from the old location once; seed examples."""
+    CONFIG.mkdir(parents=True, exist_ok=True)
+    for name in USER_FILES:
+        new, old = CONFIG / name, ROOT / name
+        if not new.exists() and old.exists():
+            shutil.copy2(old, new)                 # the original stays where it was
+    for name in ("vocabulary", "glossary"):
+        real, example = CONFIG / f"{name}.txt", ROOT / f"{name}.example.txt"
+        if not real.exists() and example.exists():
+            shutil.copyfile(example, real)
+
+
 def load_env():
     """Read KEY=VALUE lines from .env into os.environ without overriding what's already set."""
-    import os
-    env = ROOT / ".env"
+    env = CONFIG / ".env"
     if not env.exists():
         return
     for line in env.read_text(encoding="utf-8").splitlines():
@@ -34,14 +59,6 @@ def load_env():
         if line and not line.startswith("#") and "=" in line:
             key, value = line.split("=", 1)
             os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
-def seed_example_files():
-    """First run: create vocabulary.txt / glossary.txt from the bundled *.example.txt templates."""
-    for name in ("vocabulary", "glossary"):
-        real, example = ROOT / f"{name}.txt", ROOT / f"{name}.example.txt"
-        if not real.exists() and example.exists():
-            shutil.copyfile(example, real)
 
 
 def load_settings():
@@ -58,6 +75,7 @@ def load_settings():
 def save_settings(s):
     """Atomic write: a crash or concurrent save can never leave a truncated settings.json
     (which would silently drop the saved API keys on the next load)."""
+    CONFIG.mkdir(parents=True, exist_ok=True)
     tmp = SETTINGS.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(s, indent=2), encoding="utf-8")
     os.replace(tmp, SETTINGS)
@@ -72,3 +90,11 @@ def documents_folder() -> Path:
 
 def data_folder(settings) -> Path:
     return Path(settings["data_folder"]) if settings.get("data_folder") else documents_folder() / "Dolmi"
+
+
+def version() -> str:
+    """The version shown in Settings: the VERSION file shipped with the program."""
+    try:
+        return (ROOT / "VERSION").read_text(encoding="ascii").strip()
+    except OSError:
+        return "dev"

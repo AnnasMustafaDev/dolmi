@@ -25,7 +25,9 @@ def _setup_output():
     Windows console defaults to cp1252 — either way an emoji print raises 'charmap can't encode'
     and aborts model loading. Log to a UTF-8 file without a console; force UTF-8 with one."""
     if sys.stdout is None or sys.stderr is None:
-        log = open(ROOT / "dolmi.log", "a", encoding="utf-8", buffering=1)
+        logs = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "Dolmi"
+        logs.mkdir(parents=True, exist_ok=True)
+        log = open(logs / "dolmi.log", "a", encoding="utf-8", buffering=1)
         sys.stdout = sys.stderr = log
     else:
         for stream in (sys.stdout, sys.stderr):

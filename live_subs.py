@@ -11,7 +11,7 @@ v2 improvements over v1:
 
 The window and subtitle bar live in src/ (webview UI). Run: start.bat or the Dolmi shortcut.
 """
-import queue, re, threading, time
+import os, queue, re, threading, time
 from datetime import datetime
 from pathlib import Path
 
@@ -119,12 +119,12 @@ def _enable_cuda_dlls():
     """Make pip-installed CUDA libs (nvidia-cublas-cu12 / nvidia-cudnn-cu12) discoverable, so the GPU
     path works without a full CUDA toolkit. On PATH so find_library() sees them, and on the DLL
     search path so CTranslate2 can load them. A no-op when the wheels aren't installed (stays CPU)."""
-    import os
     import sys
-    base = Path(sys.prefix) / "Lib" / "site-packages" / "nvidia"
-    for pkg in ("cublas", "cudnn"):
-        d = base / pkg / "bin"
-        if d.is_dir():
+    roots = [Path(sys.prefix) / "Lib" / "site-packages", *map(Path, sys.path)]   # venv, or {app}\gpu
+    seen = set()
+    for d in (r / "nvidia" / pkg / "bin" for r in roots for pkg in ("cublas", "cudnn")):
+        if d.is_dir() and d not in seen:
+            seen.add(d)
             os.environ["PATH"] = str(d) + os.pathsep + os.environ.get("PATH", "")
             try:
                 os.add_dll_directory(str(d))
@@ -158,11 +158,12 @@ class Engine:
 
     def reload_terms(self):
         """Re-read glossary.txt (Whisper spelling hints) and vocabulary.txt (translation rules)."""
-        g = Path(__file__).with_name("glossary.txt")
+        cfg = Path(os.environ.get("DOLMI_CONFIG") or Path(__file__).parent)
+        g = cfg / "glossary.txt"
         lines = g.read_text(encoding="utf-8").splitlines() if g.exists() else []
         self.glossary = ", ".join(l.strip() for l in lines if l.strip() and not l.startswith("#"))
         self.terms = {w.lower() for w in re.findall(r"\w+", self.glossary) if len(w) > 2}
-        self.vocab = Vocabulary(Path(__file__).with_name("vocabulary.txt"))
+        self.vocab = Vocabulary(cfg / "vocabulary.txt")
 
     def _translator(self, key, download=False):
         """Loaded translator for a model key; never downloads mid-meeting unless asked."""

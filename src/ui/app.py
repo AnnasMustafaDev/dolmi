@@ -34,6 +34,7 @@ WS_EX_APPWINDOW = 0x00040000
 _SWP = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020  # NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|FRAMECHANGED
 _u = ctypes.windll.user32
 
+VERSION = config.version()
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
 SETTABLE = {"language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
@@ -101,8 +102,8 @@ def _set_capture(hwnd, hidden):
 
 class Api:
     def __init__(self):
+        config.prepare()
         config.load_env()
-        config.seed_example_files()
         self._settings = config.load_settings()
         self._settings_lock = threading.Lock()
         self._data = config.data_folder(self._settings)
@@ -233,7 +234,7 @@ class Api:
             "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
             "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
-            "engine": self._engine_label(), "dataFolder": str(self._data),
+            "engine": self._engine_label(), "dataFolder": str(self._data), "version": VERSION,
         }
 
     def set_setting(self, key, value):
@@ -603,15 +604,15 @@ class Api:
         return {"vocabulary": self._read_file("vocabulary.txt"), "glossary": self._read_file("glossary.txt")}
 
     def _read_file(self, name):
-        p = config.ROOT / name
+        p = config.CONFIG / name
         return p.read_text(encoding="utf-8") if p.exists() else ""
 
     def save_vocab(self, vocabulary=None, glossary=None):
         """Write only the files the page actually sent (None = leave that file alone)."""
         if vocabulary is not None:
-            (config.ROOT / "vocabulary.txt").write_text(vocabulary.rstrip() + "\n", encoding="utf-8")
+            (config.CONFIG / "vocabulary.txt").write_text(vocabulary.rstrip() + "\n", encoding="utf-8")
         if glossary is not None:
-            (config.ROOT / "glossary.txt").write_text(glossary.rstrip() + "\n", encoding="utf-8")
+            (config.CONFIG / "glossary.txt").write_text(glossary.rstrip() + "\n", encoding="utf-8")
         if self._engine:
             self._engine.reload_terms()
         return True

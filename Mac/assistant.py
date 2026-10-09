@@ -12,7 +12,7 @@ PROVIDERS = {
                "key_hint": "sk-ant-…", "console": "console.anthropic.com"},
     "openai": {"label": "OpenAI", "model": "gpt-5.4-mini",
                "key_hint": "sk-…", "console": "platform.openai.com"},
-    "gemini": {"label": "Gemini (Google)", "model": "gemini-3-flash-preview",
+    "gemini": {"label": "Gemini (Google)", "model": "gemini-3.8-flash",
                "key_hint": "AIza…", "console": "aistudio.google.com/apikey",
                "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"},
     "nvidia": {"label": "NVIDIA", "model": "nvidia/nemotron-3-super-120b-a12b",
@@ -199,6 +199,35 @@ def stream_summary(provider, model, api_key, transcript, context=""):
         system += f"\n\nBackground the user saved about themselves and the project:\n{context.strip()}"
     messages = [{"role": "user", "content": f"Meeting transcript:\n\n{transcript}"}]
     yield from _sender(provider)(model, api_key, system, messages, max_tokens=2048)
+
+# Shown in Settings → Assistant → Model before a key is saved (with a key, the provider's own list is used)
+KNOWN_MODELS = {
+    "claude": ["claude-haiku-4-5", "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1"],
+    "openai": ["gpt-5.4-mini"],
+    "gemini": ["gemini-3.8-flash", "gemini-3-flash-preview"],
+    "nvidia": ["nvidia/nemotron-3-super-120b-a12b"],
+}
+# Not chat models: embeddings, speech, images, video, safety classifiers, rerankers, ...
+_NOT_CHAT = re.compile(r"embed|tts|whisper|transcribe|audio|realtime|speech|dall-e|image|imagen|veo|sora|lyria|"
+                       r"vision|[-_]vl\b|clip|ocr|parse|moderation|guard|safety|reward|rerank|retriev|aqa|"
+                       r"davinci|babbage|search|computer-use|deplot|kosmos|fuyu|neva|vila|cosmos", re.I)
+
+def list_models(provider, api_key=""):
+    """Every chat model the provider offers this key, sorted, default first. NVIDIA's list is public;
+    the others need the key. Raises AssistantError when the list can't be fetched."""
+    p = PROVIDERS[provider]
+    try:
+        if provider == "claude":
+            import anthropic
+            ids = [m.id for m in anthropic.Anthropic(api_key=api_key, timeout=15.0).models.list(limit=1000)]
+        else:
+            import openai
+            client = openai.OpenAI(api_key=api_key or "none", base_url=p.get("base_url"), timeout=15.0)
+            ids = [m.id.removeprefix("models/") for m in client.models.list()]
+    except Exception as e:
+        raise AssistantError(f"Couldn't list {p['label']} models: {e}")
+    ids = sorted({i for i in ids if not _NOT_CHAT.search(i)})
+    return [p["model"]] + [i for i in ids if i != p["model"]]
 
 def _sender(provider):
     """The streaming call for a provider (looked up at call time, so tests can swap them)."""

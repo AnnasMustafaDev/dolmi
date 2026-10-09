@@ -131,6 +131,7 @@ class Api:
         self._ids = itertools.count()
         self._level = 0.0
         self._pc = None                      # cached PC specs (pc_info)
+        self._model_lists = {}               # (provider, key) -> model IDs
         self._dl = set()                     # model keys downloading right now
         self._ui_q = queue.Queue()
         self._ask_q = queue.Queue()
@@ -342,6 +343,25 @@ class Api:
             self._settings["api_keys"][self._provider()] = assistant.encrypt_key((key or "").strip())
             config.save_settings(self._settings)
         return True
+
+    def list_ai_models(self):
+        """Models for Settings → Assistant → Model: the provider's live list (with a key; NVIDIA's is
+        public), else a short built-in one. Cached per provider and key until the app restarts."""
+        provider, key = self._provider(), self._ai_key()
+        cache_key = (provider, key)
+        live = bool(key) or provider == "nvidia"
+        if live and cache_key not in self._model_lists:
+            try:
+                self._model_lists[cache_key] = assistant.list_models(provider, key)
+            except assistant.AssistantError as e:
+                print(e)
+                live = False
+        models = self._model_lists.get(cache_key) if live else None
+        models = list(models or assistant.KNOWN_MODELS[provider])
+        if self._ai_model() not in models:
+            models.insert(1, self._ai_model())
+        return {"models": models, "live": bool(live and cache_key in self._model_lists),
+                "current": self._ai_model(), "default": assistant.PROVIDERS[provider]["model"]}
 
     def set_ai_model(self, model):
         """The Assistant model for the current provider; empty goes back to the provider's default."""

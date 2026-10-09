@@ -340,7 +340,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
         <div class="set"><div><div class="lab">Provider</div></div><div class="seg" id="setProvider"><button data-p="claude" class="a">Claude</button><button data-p="openai">OpenAI</button><button data-p="gemini">Gemini</button><button data-p="nvidia">NVIDIA</button></div></div>
         <div class="set"><div><div class="lab">API key</div><div class="ps">Encrypted with your Mac Keychain</div></div>
           <div style="display:flex;gap:8px"><input class="field" id="setKey" type="password" placeholder="sk-…" style="width:140px;font-family:var(--mono)"><button class="btn ghost" id="setTest">Test</button></div></div>
-        <div class="set"><div><div class="lab">Model</div><div class="ps">Leave empty for the default</div></div><input class="field" id="setAiModel" spellcheck="false" style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></div>
+        <div class="set"><div><div class="lab">Model</div><div class="ps" id="aiModelHint">Every model this provider offers</div></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><select class="field" id="setAiModel" style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></select><input class="field" id="setAiModelOther" placeholder="model ID, then Enter" spellcheck="false" hidden style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></div></div>
         <div class="set"><div><div class="lab">Status</div></div><span class="ok" id="keyStatus" style="color:var(--mute)">—</span></div>
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="shield-check"></i></span>Privacy &amp; stealth</div>
@@ -594,10 +594,17 @@ function pickLang(l){ const b=bridge(); if(b) b.set_setting('language',l); apply
 if($('#setLang')) $('#setLang').onchange=()=>pickLang($('#setLang').value);
 if($('#setKeep'))[...$('#setKeep').children].forEach(x=>x.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting('keep_days',+x.dataset.d); }));
 function applyProvider(s){ if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':(s.keyHint||'sk-…'); if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet';
-  const m=$('#setAiModel'); if(m){ m.placeholder=s.modelDefault||''; m.value=s.model===s.modelDefault?'':(s.model||''); } }
+  loadAiModels(); }
+async function loadAiModels(){ const b=bridge(), m=$('#setAiModel'); if(!b||!m) return;
+  m.innerHTML='<option>Loading models…</option>'; const r=await b.list_ai_models();
+  m.innerHTML=r.models.map(id=>`<option value="${esc(id)}">${esc(id)}${id===r.default?' (default)':''}</option>`).join('')+'<option value="__other">Other…</option>';
+  m.value=r.current; $('#setAiModelOther').hidden=true;
+  $('#aiModelHint').textContent=r.live?`${r.models.length} models from this provider`:'Add your API key to see every model'; }
+async function useAiModel(id){ const b=bridge(); if(!b||!id) return; const s=await b.set_ai_model(id); toast('Assistant model: '+s.model); loadAiModels(); }
 if($('#setProvider'))[...$('#setProvider').children].forEach(x=>x.addEventListener('click',async()=>{ const b=bridge(); if(b) applyProvider(await b.set_provider(x.dataset.p)); }));
-if($('#setAiModel')) $('#setAiModel').addEventListener('change',async()=>{ const b=bridge(); if(b){ applyProvider(await b.set_ai_model($('#setAiModel').value)); toast('Assistant model: '+($('#setAiModel').value||$('#setAiModel').placeholder)); } });
-if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey').value.trim(); const b=bridge(); if(v&&b){ b.set_key(v); $('#setKey').value=''; $('#setKey').placeholder='•••••• saved'; if($('#keyStatus')) $('#keyStatus').textContent='Key saved'; } });
+if($('#setAiModel')) $('#setAiModel').addEventListener('change',()=>{ const v=$('#setAiModel').value; if(v==='__other'){ const o=$('#setAiModelOther'); o.hidden=false; o.value=''; o.focus(); } else useAiModel(v); });
+if($('#setAiModelOther')) $('#setAiModelOther').addEventListener('change',()=>useAiModel($('#setAiModelOther').value.trim()));
+if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey').value.trim(); const b=bridge(); if(v&&b){ b.set_key(v).then(loadAiModels); $('#setKey').value=''; $('#setKey').placeholder='•••••• saved'; if($('#keyStatus')) $('#keyStatus').textContent='Key saved'; } });
 if($('#setTest')) $('#setTest').onclick=async()=>{ const b=bridge(), st=$('#keyStatus'); if(!b){ if(st) st.textContent='Runs in the app'; return; } if(st) st.textContent='Testing…'; const r=await b.test_key(); if(st) st.textContent=(r.ok?'✓ ':'✗ ')+r.message; };
 
 /* ---- copy / archive / delete ---- */

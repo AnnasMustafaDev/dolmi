@@ -1,0 +1,53 @@
+name: Installer test
+
+# Builds the installer from the current commit and runs installer\test-install.ps1 on a clean Windows
+# runner: silent install, launch, upgrade (one Apps & features entry), uninstall. Run it from the
+# Actions tab any time; it also runs when installer or app code changes on main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["installer/**", "src/**", "*.py", "requirements-lock.txt", "VERSION"]
+
+permissions:
+  contents: read
+
+jobs:
+  install-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Ensure Inno Setup is installed
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Build installer (+ an upgrade build)
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          ./installer/build.ps1 -Version $v -Python (Get-Command python).Source
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DMyAppVersion=$v.1" installer\dolmi.iss
+          "VERSION=$v" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Install test
+        shell: pwsh
+        run: |
+          ./installer/test-install.ps1 -Setup "dist\Dolmi-Setup-$env:VERSION.exe" -Version $env:VERSION `
+            -UpgradeSetup "dist\Dolmi-Setup-$env:VERSION.1.exe" -UpgradeVersion "$env:VERSION.1"
+
+      - name: Keep the installer for manual testing
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Dolmi-Setup-${{ env.VERSION }}
+          path: dist/Dolmi-Setup-${{ env.VERSION }}.exe
+          retention-days: 7

@@ -1,0 +1,74 @@
+name: Release
+
+# Push a tag like v2.0.1 (matching the VERSION file) to build Dolmi-Setup-2.0.1.exe, test it on a clean
+# runner, and publish it as a draft GitHub Release. Review the draft, then click Publish.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write          # needed to create the release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Tag matches VERSION
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}".TrimStart("v")
+          $file = (Get-Content VERSION -Raw).Trim()
+          if ($tag -ne $file) { throw "Tag v$tag does not match VERSION ($file). Bump VERSION first." }
+
+      - name: Tests
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-lock.txt pytest
+          python -m pytest -q tests/test_helpers.py
+          python tests/test_webview_bridge.py
+
+      - name: Ensure Inno Setup is installed
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          ./installer/build.ps1 -Version $version -Python (Get-Command python).Source
+
+      # Release gate: install, launch, upgrade and uninstall the real setup.exe on this clean runner.
+      # The upgrade build is a copy with a bumped version and is deleted so it never gets published.
+      - name: Install test (silent install, launch, upgrade, uninstall)
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DMyAppVersion=$v.1" installer\dolmi.iss
+          ./installer/test-install.ps1 -Setup "dist\Dolmi-Setup-$v.exe" -Version $v `
+            -UpgradeSetup "dist\Dolmi-Setup-$v.1.exe" -UpgradeVersion "$v.1"
+          Remove-Item "dist\Dolmi-Setup-$v.1.exe"
+
+      - name: Publish draft GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/Dolmi-Setup-*.exe
+            dist/SHA256SUMS.txt
+          draft: true
+          generate_release_notes: true
+          body: |
+            **Install:** download `Dolmi-Setup-….exe` below and run it. No admin rights needed. Tick *GPU speech recognition* during setup if you have an NVIDIA card.
+
+            The installer is not code-signed yet, so Windows may show "Windows protected your PC". Click **More info → Run anyway**. On PCs with Smart App Control turned on, unsigned installers can be blocked entirely.
+
+            Check your download against `SHA256SUMS.txt`: `Get-FileHash .\Dolmi-Setup-*.exe -Algorithm SHA256`

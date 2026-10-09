@@ -267,6 +267,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       <div class="acts">
         <button class="btn ghost" id="mArchView" title="Show archived meetings"><span class="ic"><i data-lucide="archive" style="width:15px;height:15px"></i></span>Archived</button>
         <button class="btn ghost" id="mCopy" title="Copy the whole transcript"><span class="ic"><i data-lucide="copy" style="width:15px;height:15px"></i></span>Copy</button>
+        <button class="btn ghost" id="mExport" title="Save captions and translation as a .txt file"><span class="ic"><i data-lucide="download" style="width:15px;height:15px"></i></span>Export</button>
         <button class="btn ghost" id="mArchive"><span class="ic"><i data-lucide="archive-restore" style="width:15px;height:15px"></i></span><span>Archive</span></button>
         <button class="btn ghost" id="mDelete"><span class="ic"><i data-lucide="trash-2" style="width:15px;height:15px"></i></span>Delete</button>
         <button class="btn ghost"><span class="ic"><i data-lucide="file-text" style="width:15px;height:15px"></i></span>Summarize</button>
@@ -607,6 +608,7 @@ function chatText(){ return currentMsgs.map(m=>`You (${m.when}): ${m.q}\nAssista
 function archLabel(btn,arch){ const s=btn.querySelector(':scope > span:last-child'); if(s) s.textContent=arch?'Unarchive':'Archive'; }
 $('#mArchView').onclick=()=>{ mArch=!mArch; $('#mArchView').classList.toggle('on',mArch); archLabel($('#mArchive'),mArch); currentMeeting=null; loadMeetings(); };
 $('#mCopy').onclick=()=>{ if(!currentPairs.length){ toast('Open a meeting first.'); return; } copyText(meetingText()); };
+$('#mExport').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } const r=await b.export_meeting(currentMeeting); if(r.ok) toast('Exported: '+r.path); else if(!r.cancelled) toast(r.message||'Could not export'); };
 $('#mArchive').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } await b.archive_meeting(currentMeeting,!mArch); toast(mArch?'Meeting restored':'Meeting archived'); currentMeeting=null; loadMeetings(); };
 $('#mDelete').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } if(!confirm('Delete this meeting transcript permanently?')) return; await b.delete_meeting(currentMeeting); toast('Meeting deleted'); currentMeeting=null; loadMeetings(); };
 $('#aArchView').onclick=()=>{ aArch=!aArch; $('#aArchView').classList.toggle('on',aArch); archLabel($('#aArchive'),aArch); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Archived chats — open one to read it.':'Ask about the meeting below.'); loadChats(); };

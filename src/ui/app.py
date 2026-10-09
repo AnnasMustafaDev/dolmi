@@ -633,6 +633,47 @@ class Api:
         return [{"ts": ts.strip(), "de": de.strip(), "en": en.strip()}
                 for ts, en, de in _MEETING_RE.findall(p.read_text(encoding="utf-8"))]
 
+    def meeting_txt(self, name):
+        """A saved meeting as plain text: each line's time, the caption (what was said) and its translation."""
+        p = self._meeting_path(name)
+        pairs = self.read_meeting(name)
+        if not p or not pairs:
+            return ""
+        try:
+            when = f"{datetime.strptime(p.stem.removeprefix('meeting_'), '%Y-%m-%d_%H-%M'):%A %d %B %Y, %H:%M}"
+        except ValueError:
+            when = p.stem
+        out = [f"Dolmi meeting — {when}", f"{len(pairs)} lines · caption (what was said) and translation", ""]
+        for x in pairs:
+            out += [f"[{x['ts']}]", f"Caption:     {x['de']}", f"Translation: {x['en']}", ""]
+        return "\n".join(out)
+
+    def export_meeting(self, name):
+        """Save a meeting as a .txt file wherever the user picks (system Save dialog)."""
+        text = self.meeting_txt(name)
+        if not text:
+            return {"ok": False, "message": "That meeting has no lines to export."}
+        try:
+            import webview
+            downloads = Path.home() / "Downloads"
+            chosen = self._window.create_file_dialog(
+                webview.FileDialog.SAVE, directory=str(downloads if downloads.is_dir() else self._data),
+                save_filename=Path(str(name)).with_suffix(".txt").name)
+        except Exception as e:
+            return {"ok": False, "message": f"Could not open the save dialog: {e}"}
+        if isinstance(chosen, (list, tuple)):
+            chosen = chosen[0] if chosen else None
+        if not chosen:
+            return {"ok": False, "cancelled": True}
+        target = Path(chosen)
+        if target.suffix.lower() != ".txt":
+            target = target.with_name(target.name + ".txt")
+        try:
+            target.write_text(text, encoding="utf-8")
+        except OSError as e:
+            return {"ok": False, "message": f"Could not save: {e}"}
+        return {"ok": True, "path": str(target)}
+
     def delete_meeting(self, name):
         p = self._meeting_path(name)
         if p:

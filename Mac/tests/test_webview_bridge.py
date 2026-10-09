@@ -15,8 +15,10 @@ def check(name, ok, extra=""):
     results.append(ok); print(("PASS " if ok else "FAIL ") + name + (f"  [{extra}]" if extra else ""))
 
 calls = []
+save_as = []   # what the fake Save dialog returns next
 class FakeWindow:
     def evaluate_js(self, js): calls.append(js)
+    def create_file_dialog(self, *a, **k): calls.append(('dialog', k)); return save_as.pop() if save_as else None
 
 # sandbox: point data folder + repo files (settings/vocab) at temp dirs
 tmp_root = Path(tempfile.mkdtemp()); tmp_data = Path(tempfile.mkdtemp()); tmp_cfg = Path(tempfile.mkdtemp()) / "Dolmi"
@@ -77,6 +79,16 @@ outside = tmp_root / "meeting_secret.md"; outside.write_text("**1** x  \n<sub>y<
 check("path traversal blocked (read)", api.read_meeting("../" + tmp_root.name + "/meeting_secret.md") == [] and api.read_meeting(str(outside)) == [])
 api.delete_meeting(str(outside))
 check("path traversal blocked (delete)", outside.exists())
+out_txt = tmp_root / "export"
+save_as.append((str(out_txt),))            # user picks a name without .txt, as a tuple like Cocoa returns
+r = api.export_meeting("meeting_2026-10-09_11-14.md")
+txt = (tmp_root / "export.txt").read_text(encoding="utf-8") if r.get("ok") else ""
+check("export writes captions + translation to a .txt", r.get("ok") and r["path"].endswith("export.txt")
+      and "Caption:     Geil, kein Cloud Browser." in txt and "Translation: Awesome, no Cloud browser." in txt
+      and "[11:35:06]" in txt and txt.startswith("Dolmi meeting — "))
+check("export suggests the meeting's name as .txt", any(isinstance(c, tuple) and c[1].get("save_filename") == "meeting_2026-10-09_11-14.txt" for c in calls))
+check("cancelled export writes nothing", api.export_meeting("meeting_2026-10-09_11-14.md") == {"ok": False, "cancelled": True})
+check("export refuses paths outside the data folder", api.export_meeting(str(outside)).get("ok") is False)
 
 # 6. vocab: saving the glossary must never touch vocabulary.txt
 vocab_before = (tmp_cfg / "vocabulary.txt").read_text(encoding="utf-8")

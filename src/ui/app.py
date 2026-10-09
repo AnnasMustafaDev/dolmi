@@ -11,11 +11,14 @@ Whisper model, the settings with the encrypted keys, and the database handle.
 import ctypes
 import itertools
 import json
+import os
 import queue
 import re
+import subprocess
 import threading
 import time
 from datetime import datetime
+from pathlib import Path
 
 import config
 import assistant
@@ -34,7 +37,7 @@ _u = ctypes.windll.user32
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
 SETTABLE = {"language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
-            "overlay", "theme", "ai_length", "ai_context"}
+            "overlay", "theme", "ai_length", "ai_context", "opacity", "font"}
 
 
 def _js(v):
@@ -67,6 +70,22 @@ def _set_toolwindow(hwnd, on):
             _u.SetWindowPos(hwnd, 0, 0, 0, 0, 0, _SWP)
     except Exception as e:
         print(f"invisible: taskbar style failed ({e})")
+
+
+def _gpu_name():
+    """The graphics card's marketing name (NVIDIA first), for display only."""
+    flags = 0x08000000  # CREATE_NO_WINDOW
+    for cmd in (["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                ["powershell", "-NoProfile", "-Command",
+                 "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join '|'"]):
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=8, creationflags=flags).stdout
+        except (OSError, subprocess.SubprocessError):
+            continue
+        names = [n.strip() for n in out.replace("|", "\n").splitlines() if n.strip()]
+        if names:
+            return next((n for n in names if "NVIDIA" in n.upper()), names[0])
+    return ""
 
 
 def _set_capture(hwnd, hidden):
@@ -107,6 +126,8 @@ class Api:
         self._asks = {}
         self._ids = itertools.count()
         self._level = 0.0
+        self._pc = None                      # cached PC specs (pc_info)
+        self._dl = set()                     # model keys downloading right now
         self._ui_q = queue.Queue()
         self._ask_q = queue.Queue()
         self._ov_q = queue.Queue()
@@ -211,6 +232,7 @@ class Api:
             "model": self._ai_model(), "hasKey": bool(self._ai_key()),
             "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
+            "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
             "engine": self._engine_label(), "dataFolder": str(self._data),
         }
 
@@ -222,6 +244,84 @@ class Api:
             config.save_settings(self._settings)
         if key == "keep_days":
             threading.Thread(target=self._purge_old, daemon=True).start()
+        if key in ("opacity", "font"):
+            self._push_overlay_style()
+        if key in ("model", "language") and not self._session:
+            self._engine = None              # next Start loads the newly chosen model/translator
+        return True
+
+    def pc_info(self):
+        """What this PC has — detected, never assumed — and where Dolmi keeps things."""
+        if self._pc is None:
+            info = {"ram_gb": 0, "cores": os.cpu_count() or 1, "gpu": False, "gpu_name": "",
+                    "model_dir": "", "data_dir": str(self._data)}
+            try:
+                live_subs._enable_cuda_dlls()          # pip-installed CUDA libs count as installed
+                import models
+                s = models.system_info()
+                info.update(ram_gb=s["ram_gb"], cores=s["cores"], gpu=bool(s["gpu"]))
+            except Exception as e:
+                print(f"pc_info: {e}")
+            info["gpu_name"] = _gpu_name()
+            try:
+                from huggingface_hub.constants import HF_HUB_CACHE
+                info["model_dir"] = str(HF_HUB_CACHE)
+            except Exception:
+                pass
+            self._pc = info
+        return self._pc
+
+    def copy_text(self, text):
+        """Put text on the Windows clipboard (works regardless of WebView2 clipboard permissions)."""
+        k32 = ctypes.windll.kernel32
+        k32.GlobalAlloc.restype = ctypes.c_void_p
+        k32.GlobalLock.restype = ctypes.c_void_p
+        k32.GlobalLock.argtypes = [ctypes.c_void_p]
+        k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        _u.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+        data = (text or "").encode("utf-16-le") + b"\x00\x00"
+        for _ in range(10):
+            if _u.OpenClipboard(None):
+                break
+            time.sleep(0.05)
+        else:
+            return False
+        try:
+            _u.EmptyClipboard()
+            h = k32.GlobalAlloc(0x0002, len(data))          # GMEM_MOVEABLE
+            ctypes.memmove(k32.GlobalLock(h), data, len(data))
+            k32.GlobalUnlock(h)
+            _u.SetClipboardData(13, h)                       # CF_UNICODETEXT; the clipboard owns h now
+        finally:
+            _u.CloseClipboard()
+        return True
+
+    # ---- archive (a small JSON next to the data, so the shared inbox schema stays unchanged)
+    def _archived(self):
+        try:
+            d = json.loads((self._data / "archived.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            d = {}
+        return {"meetings": set(d.get("meetings", [])), "chats": set(d.get("chats", []))}
+
+    def _save_archived(self, a):
+        tmp = self._data / "archived.json.tmp"
+        tmp.write_text(json.dumps({k: sorted(v) for k, v in a.items()}, indent=1), encoding="utf-8")
+        os.replace(tmp, self._data / "archived.json")
+
+    def archive_meeting(self, name, on=True):
+        p = self._meeting_path(name)
+        if not p:
+            return False
+        a = self._archived()
+        (a["meetings"].add if on else a["meetings"].discard)(p.name)
+        self._save_archived(a)
+        return True
+
+    def archive_chat(self, chat_id, on=True):
+        a = self._archived()
+        (a["chats"].add if on else a["chats"].discard)(int(chat_id))
+        self._save_archived(a)
         return True
 
     def set_key(self, key):
@@ -274,16 +374,19 @@ class Api:
                 return
             if not self._engine:
                 self._emit("onEngine", "loading models…")
+                watch = self._watch_downloads(self._needed_models())
                 try:
                     self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
                                                     self._settings["language"])
                 except Exception as e:
+                    watch.set()
                     with self._lock:
                         if self._alive(token):
                             self._session = None
                     self._emit("onError", f"Could not load models: {e}")
                     self._emit("onStopped")
                     return
+                watch.set()
                 self._emit("onEngine", self._engine_label())
         with self._lock:
             if not self._alive(token):                # stopped while the models loaded
@@ -330,6 +433,111 @@ class Api:
     def _on_level(self, rms):
         self._level = rms
 
+    # ------------------------------------------------------------------ models
+    def _auto_speech(self):
+        return "large-v3-turbo" if self.pc_info()["gpu"] else "small"
+
+    def _needed_models(self):
+        """The speech model and translator the next Start will use."""
+        import models
+        speech = self._settings["model"] if self._settings["model"] != "auto" else self._auto_speech()
+        lang = self._settings["language"]
+        return [k for k in (speech, models.translator_key("mul" if lang == "auto" else lang)) if k]
+
+    def _watch_downloads(self, keys):
+        """While models load, report download progress for any that aren't installed yet."""
+        import models
+        done = threading.Event()
+        todo = [models.BY_KEY[k] for k in keys if k in models.BY_KEY and not models.is_installed(models.BY_KEY[k])]
+
+        def poll():
+            while todo and not done.wait(1.0):
+                m = next((m for m in todo if not models.is_installed(m)), None)
+                if not m:
+                    return
+                mb = models.downloaded_mb(m)
+                self._emit("onEngine", f"downloading {m.name} — {mb:,.0f} of {m.size_mb:,} MB (first start only)")
+        threading.Thread(target=poll, daemon=True).start()
+        return done
+
+    def list_models(self):
+        """Speech models + the translators this language needs, with install state and fit."""
+        import models
+        pc = self.pc_info()
+        pcm = {"ram_gb": pc["ram_gb"] or 8, "cores": pc["cores"], "gpu": pc["gpu"]}
+        needed = set(self._needed_models())
+        lang = self._settings["language"]
+        translators = {models.translator_key("mul" if lang == "auto" else lang), "opus-mul"} - {None}
+        loaded = set()
+        if self._engine:
+            loaded = {self._engine.model_name, *self._engine.translators}
+        out = []
+        for m in models.CATALOG:
+            if m.job == models.TRANSLATE and m.key not in translators:
+                continue
+            try:
+                installed = models.is_installed(m)
+            except Exception:
+                installed = False
+            verdict, colour = models.fit(m, pcm) if m.job == models.SPEECH else ("Runs well", "ok")
+            out.append({"key": m.key, "name": m.name, "kind": "speech" if m.job == models.SPEECH else "translate",
+                        "sizeMb": m.size_mb, "installed": installed, "downloading": m.key in self._dl,
+                        "fit": verdict, "fitOk": colour == "ok", "note": m.note,
+                        "needed": m.key in needed, "loaded": m.key in loaded})
+        return out
+
+    def download_model(self, key):
+        import models
+        m = models.BY_KEY.get(key)
+        if not m or key in self._dl:
+            return False
+        self._dl.add(key)
+
+        def work():
+            err = ""
+            stop = threading.Event()
+
+            def poll():
+                while not stop.wait(1.0):
+                    self._emit("onModelProgress", key, round(models.downloaded_mb(m)), m.size_mb)
+            threading.Thread(target=poll, daemon=True).start()
+            try:
+                models.download(m)
+            except Exception as e:
+                err = f"Download failed: {e}"
+            stop.set()
+            self._dl.discard(key)
+            self._emit("onModelDone", key, err)
+
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def remove_model(self, key):
+        import models
+        m = models.BY_KEY.get(key)
+        if not m:
+            return {"ok": False, "message": "Unknown model."}
+        e = self._engine
+        if e and (e.model_name == key or key in e.translators):
+            if self._session:
+                return {"ok": False, "message": "Stop translating before removing a model in use."}
+            self._engine = None
+        try:
+            models.uninstall(m)
+        except Exception as ex:
+            return {"ok": False, "message": f"Could not remove it: {ex}"}
+        return {"ok": True}
+
+    def open_model_folder(self):
+        d = self.pc_info().get("model_dir")
+        if d:
+            try:
+                Path(d).mkdir(parents=True, exist_ok=True)
+                os.startfile(d)
+            except OSError as e:
+                print(f"open model folder failed: {e}")
+        return True
+
     # ------------------------------------------------------------------ meetings
     def _meeting_path(self, name):
         """A meeting file inside the data folder, or None (blocks ..\\ and absolute paths)."""
@@ -342,9 +550,11 @@ class Api:
             return None
         return p
 
-    def list_meetings(self):
-        out = []
+    def list_meetings(self, archived=False):
+        out, arch = [], self._archived()["meetings"]
         for p in sorted(self._data.glob("meeting_*.md"), reverse=True):
+            if (p.name in arch) != bool(archived):
+                continue
             try:
                 dt = datetime.strptime(p.stem.removeprefix("meeting_"), "%Y-%m-%d_%H-%M")
                 day, tm = f"{dt:%a %d %b %Y}", f"{dt:%H:%M}"
@@ -373,6 +583,10 @@ class Api:
                     f.unlink()
                 except OSError:
                     pass
+            a = self._archived()
+            if p.name in a["meetings"]:
+                a["meetings"].discard(p.name)
+                self._save_archived(a)
         return True
 
     def open_data_folder(self):
@@ -458,10 +672,14 @@ class Api:
         finally:
             db.close()
 
-    def list_chats(self, search=""):
+    def list_chats(self, search="", archived=False):
+        arch = self._archived()["chats"]
+
         def q(db):
             out = []
             for c in inbox.list_chats(db, search or ""):
+                if (c["id"] in arch) != bool(archived):
+                    continue
                 try:
                     when = f"{inbox.local(c['started_at']):%a %d %b, %H:%M}"
                 except ValueError:
@@ -503,6 +721,7 @@ class Api:
             print(f"delete_chat failed: {e}")
         if self._chat_id == int(chat_id):
             self.new_chat()
+        self.archive_chat(chat_id, False)
         return True
 
     # ------------------------------------------------------------------ summary
@@ -561,6 +780,7 @@ class Api:
             def loaded(*_):
                 self._overlay_ready = True
                 self._stealth_overlay()
+                self._push_overlay_style()
 
             def shown(*_):
                 self._stealth_overlay()
@@ -581,6 +801,10 @@ class Api:
             self._overlay.hide()
         self._overlay_visible = False
         return True
+
+    def _push_overlay_style(self):
+        s = self._settings
+        self._ov("style", float(s.get("opacity", 0.88)), int(s.get("font", 22)))
 
     def _on_overlay_hidden(self):
         """The bar's own ✕ was pressed: keep the main window's switch in sync."""
@@ -603,7 +827,15 @@ class Api:
         _set_toolwindow(main, on)
         _set_capture(main, on)                 # last: a style change can reset the affinity
         if self._overlay:
-            _set_capture(_native_hwnd(self._overlay.window, "Dolmi overlay"), on)
+            # Changing capture affinity on a visible WebView2 window can leave it painted blank
+            # (white) until it's re-shown — so re-show it ourselves around the change.
+            ov_hwnd = _native_hwnd(self._overlay.window, "Dolmi overlay")
+            if self._overlay_visible:
+                self._overlay.hide()
+                _set_capture(ov_hwnd, on)
+                self._overlay.show()
+            else:
+                _set_capture(ov_hwnd, on)
         return on
 
     def recover(self):

@@ -25,3 +25,6 @@ dist/
 
 # Stray git temp files
 _to_delete/
+
+# installer build cache (downloaded Python runtime)
+installer/.cache/

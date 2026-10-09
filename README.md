@@ -4,6 +4,8 @@
 
 Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live English translation in a floating subtitle bar. German is the default spoken language, with 27+ other languages selectable. Speech recognition and translation run locally and your audio never leaves your PC; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
+> **On a Mac?** See [Mac/](Mac/README.md) — the same app for macOS 14.2+ (Apple Silicon).
+
 > Windows 10 (2004+) / 11. MIT licence. [Download the installer](https://github.com/AnnasMustafaDev/dolmi/releases) — no admin rights needed.
 
 ![Dolmi live view: German on the left, English on the right](assets/screenshots/live.png)
@@ -24,7 +26,7 @@ Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack,
 - **Any language → English** — 27+ spoken languages, auto-detect, German by default.
 - **You choose the models** — *Settings → This PC & speech models* detects your GPU, RAM and CPU, says how well each Whisper model runs on *this* PC, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
 - **Meetings** — every session saved as Markdown + SRT in both languages. Copy, archive, delete, or summarize any meeting.
-- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude or OpenAI key; optional.
+- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini or NVIDIA key; optional.
 - **Vocabulary & glossary** — teach Dolmi your names, products and terms so they're spelled and translated correctly, applied without a restart.
 - **Privacy controls** — turn off saving, or auto-delete files after 7, 30 or 90 days. No account, no telemetry.
 - **Proper Windows app** — a signed-runtime installer with Start-menu shortcut, clean upgrades and uninstall, light (Paper) and dark (Ink) themes, and a UI that works fully offline.

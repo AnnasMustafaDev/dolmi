@@ -1,4 +1,4 @@
-﻿"""Run: venv\Scripts\python.exe tests\test_webview_bridge.py
+r"""Run: venv\Scripts\python.exe tests\test_webview_bridge.py
 
 Headless tests for the Dolmi webview Api (no GUI). Uses a temp data folder + temp repo files so
 nothing real is touched. Prints PASS/FAIL per check and a summary."""
@@ -104,6 +104,32 @@ calls.clear(); api.ask("Hello?"); time.sleep(1.5)
 check("ask -> onAsk + onAnswerDone (error reported, loop alive)", any("onAsk(" in c for c in calls) and any("onAnswerDone(" in c for c in calls))
 calls.clear(); api.ask("Second?"); time.sleep(1.5)
 check("answer loop still alive for a 2nd question", any("onAnswerDone(" in c for c in calls))
+
+# 11. archive: meetings + chats move between the normal and archived lists
+api.archive_meeting("meeting_2026-10-09_11-14.md", True)
+check("archived meeting leaves the main list", api.list_meetings() == [] and len(api.list_meetings(True)) == 1)
+api.archive_meeting("meeting_2026-10-09_11-14.md", False)
+check("unarchive restores it", len(api.list_meetings()) == 1)
+check("archive blocks path traversal", api.archive_meeting("..\\x\\meeting_a.md") is False)
+db = inbox.connect(api._db_path)
+cid2 = inbox.start_chat(db, "claude", "m"); inbox.add_message(db, cid2, "Keep this?", "Yes.", "", "typed"); db.close()
+api.archive_chat(cid2, True)
+ids = lambda chats: {c["id"] for c in chats}
+check("archived chat hidden / listed as archived", cid2 not in ids(api.list_chats()) and cid2 in ids(api.list_chats("", True)))
+api.delete_chat(cid2)
+check("deleting an archived chat clears its archive flag", cid2 not in api._archived()["chats"])
+
+# 12. clipboard, bar settings, PC detection, models
+check("copy_text round-trip", api.copy_text("Dolmi ✓ Copy") is True)
+check("opacity/font settable", api.set_setting("opacity", 0.6) and api.set_setting("font", 28)
+      and config.load_settings()["opacity"] == 0.6)
+pc = api.pc_info()
+check("pc_info detects this PC", pc["ram_gb"] > 0 and pc["cores"] > 0 and isinstance(pc["gpu"], bool) and bool(pc["model_dir"]),
+      f"{pc['gpu_name']} · {pc['ram_gb']} GB · gpu={pc['gpu']}")
+ms = api.list_models()
+check("list_models: speech models + the needed translator", any(m["kind"] == "speech" for m in ms)
+      and any(m["needed"] and m["kind"] == "translate" for m in ms))
+check("remove_model rejects unknown keys", api.remove_model("nope")["ok"] is False)
 
 print(f"\n{sum(results)}/{len(results)} passed")
 

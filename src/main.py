@@ -52,7 +52,8 @@ def main():
     api = app_mod.Api()
     window = webview.create_window(
         "Dolmi", url=str((WEB / "index.html").as_uri()), js_api=api,
-        width=1180, height=780, min_size=(900, 600), background_color="#F2ECDF")
+        width=1180, height=780, min_size=(900, 600), background_color="#F2ECDF",
+        text_select=True)   # captions, transcripts and answers must be selectable/copyable
     api._window = window
 
     def on_start():

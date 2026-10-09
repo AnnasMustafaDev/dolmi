@@ -17,7 +17,7 @@ That provider's own terms and privacy policy apply to this data: [Anthropic](htt
 
 ## Cloud captions (optional, off by default)
 
-If you set *Settings → Captions by* to Gemini, OpenAI or Cloudflare, Dolmi sends the **audio of each finished sentence** (plus your glossary terms and the previous sentence) to that provider with your own API key, and gets back the text (and, for Gemini, the translation). Audio is only sent while you are captioning, one sentence at a time. That provider's terms and privacy policy apply. Leave *Captions by* on *This computer* and no audio ever leaves your device.
+If you set *Settings → Captions by* to Gemini, OpenAI or Cloudflare, Dolmi sends **the audio of what is being said** — every ~0.8 s while someone speaks (for the live line) and each finished sentence — plus your glossary terms and the previous sentence, to that provider with your own API key, and gets back the text (and, for Gemini, the translation). Audio is only sent while you are captioning and someone is speaking. That provider's terms and privacy policy apply. Leave *Captions by* on *This computer* and no audio ever leaves your device.
 
 ## 2. Speech and translation models — downloaded from Hugging Face
 

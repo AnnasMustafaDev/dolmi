@@ -457,10 +457,9 @@ class Api:
                         self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
                                                         self._settings["language"])
                     else:
-                        model = self._settings["ai_models"].get(source) or (
-                            assistant.PROVIDERS[source]["model"] if source == "gemini" else "")
+                        # captions use the provider's fast speech model, not the Assistant's model
                         self._engine = cloud_speech.CloudEngine(source, self._key_for(source),
-                                                                self._settings["language"], model)
+                                                                self._settings["language"])
                 except Exception as e:
                     watch.set()
                     with self._lock:

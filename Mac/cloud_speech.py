@@ -1,23 +1,27 @@
-"""Cloud captions: each finished sentence goes to a speech API instead of the local Whisper model.
+"""Cloud captions: speech goes to a speech API instead of the local Whisper model.
 
 Settings → Captions by: "local" (Whisper on this computer, private, the default) or a provider whose
 API key is saved in Settings → Assistant:
 
-  gemini      one request hears AND translates the sentence (Gemini understands audio)
+  gemini      one request hears AND translates (Gemini understands audio); gemini-3.1-flash-lite,
+              minimal thinking: about 1 s per request
   openai      gpt-4o-mini-transcribe hears it; Opus-MT translates it locally
   cloudflare  Workers AI Whisper Large v3 Turbo hears it; Opus-MT translates it locally
 
-Dolmi still finds the pauses locally (Silero VAD), so only finished sentences are sent: one request
-per sentence, no live draft line. Requests run on their own thread, in order, so capturing never waits.
+Kept fast on purpose:
+  * a draft request every DRAFT_EVERY s while someone talks (two may be in flight), shown as the live line, so text
+    appears about a second after the words instead of after the sentence;
+  * long speech is cut at short breaths (live_subs.worker), so captions keep flowing;
+  * requests run in parallel (finals are still shown in order) on kept-alive HTTPS connections.
 """
 import base64
+import http.client
 import io
 import json
-import queue
+import ssl
 import threading
 import time
-import urllib.error
-import urllib.request
+import queue
 import wave
 
 import numpy as np
@@ -26,8 +30,12 @@ import live_subs
 import models
 
 PROVIDERS = {"gemini": "Gemini", "openai": "OpenAI", "cloudflare": "Cloudflare Workers AI"}
+GEMINI_MODEL = "gemini-3.1-flash-lite"           # ~1 s with minimal thinking; 3.8 Flash takes ~2 s
 OPENAI_MODEL = "gpt-4o-mini-transcribe"
 CLOUDFLARE_MODEL = "@cf/openai/whisper-large-v3-turbo"
+DRAFT_EVERY = 0.8     # s between draft requests while someone is talking
+DRAFTS_IN_FLIGHT = 2  # so drafts keep their pace even when a request takes ~1 s
+WORKERS = 4           # parallel requests (finals are still shown in the order spoken)
 _ERROR_EVERY = 30.0   # s between repeated error toasts
 
 
@@ -43,21 +51,39 @@ def wav_bytes(audio, rate=live_subs.SR):
     return out.getvalue()
 
 
+_conns = threading.local()   # one kept-alive HTTPS connection per host per thread: no TLS handshake per request
+
+
 def _post_json(url, payload, headers, timeout=30):
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
-                                 headers={"Content-Type": "application/json", **headers})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.load(r)
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")[:300]
-        raise RuntimeError(f"HTTP {e.code}: {detail}")
+    host, _, path = url.removeprefix("https://").partition("/")
+    body = json.dumps(payload).encode()
+    headers = {"Content-Type": "application/json", **headers}
+    pool = _conns.__dict__.setdefault("pool", {})
+    for attempt in (1, 2):   # a kept-alive connection the server closed: reconnect once
+        conn = pool.get(host)
+        if conn is None:
+            conn = pool[host] = http.client.HTTPSConnection(host, timeout=timeout,
+                                                            context=ssl.create_default_context())
+        try:
+            conn.request("POST", "/" + path, body, headers)
+            r = conn.getresponse()
+            data = r.read()
+        except (OSError, http.client.HTTPException):
+            conn.close()
+            pool.pop(host, None)
+            if attempt == 2:
+                raise
+            continue
+        if r.status >= 400:
+            raise RuntimeError(f"HTTP {r.status}: {data.decode(errors='replace')[:300]}")
+        return json.loads(data)
 
 
 class CloudEngine(live_subs.Engine):
     """Same interface as live_subs.Engine (translate, reload_terms, translators, ...), but the
     speech recognition (and for Gemini the translation) happens in the cloud."""
     cloud = True
+    DRAFT_EVERY = DRAFT_EVERY
 
     def __init__(self, provider, api_key, language="de", model=""):
         if provider not in PROVIDERS:
@@ -65,40 +91,103 @@ class CloudEngine(live_subs.Engine):
         if not api_key:
             raise RuntimeError(f"add your {PROVIDERS[provider]} API key in Settings → Assistant first")
         self.provider, self.key, self.language = provider, api_key, language
-        self.model_name = model or {"openai": OPENAI_MODEL, "cloudflare": CLOUDFLARE_MODEL}.get(provider, "")
+        self.model_name = model or {"gemini": GEMINI_MODEL, "openai": OPENAI_MODEL,
+                                    "cloudflare": CLOUDFLARE_MODEL}[provider]
         self.device = "cpu"   # for the local translator (OpenAI/Cloudflare); captions come from the cloud
         self.translators, self.context = {}, ""
-        self.thinking = True   # Gemini: ask for low thinking (2 s instead of 3) until the model says it can't
+        self.thinking = "minimal"   # Gemini: the lowest thinking level the model accepts (None = don't ask)
         self.reload_terms()
         if provider != "gemini":   # these only transcribe: translate locally, like local captions
             self._translator(models.translator_key(language), download=True)
         self._jobs = queue.Queue()
+        self._lock = threading.Lock()
+        self._utterance = 0          # id of the sentence being spoken now
+        self._shown = 0              # last sentence whose final caption was shown
+        self._pending = {}           # sentence id -> result, waiting for earlier sentences
+        self._drafting = 0           # draft requests in flight
+        self._draft_seq = self._draft_shown = 0   # newest draft sent / shown (an older reply never wins)
         self._last_error = 0.0
-        threading.Thread(target=self._run, daemon=True).start()
+        self._requests = 0
+        for _ in range(WORKERS):     # daemon threads: never keep the app from quitting
+            threading.Thread(target=self._serve, daemon=True, name="cloud-captions").start()
         print(f"☁️ Cloud captions: {PROVIDERS[provider]} · {self.model_name}")
 
-    # ---- worker hands finished sentences here
-    def submit(self, audio, start, end, ui_q, transcript):
-        self._jobs.put((audio, start, end, ui_q, transcript))
-
-    def _run(self):
-        while True:
-            audio, start, end, ui_q, tr = self._jobs.get()
+    def _serve(self):
+        """One request thread. It opens its HTTPS connection right away, so the first captions don't
+        pay ~0.5 s for DNS + TLS (best effort: otherwise it connects on first use)."""
+        host = {"gemini": "generativelanguage.googleapis.com", "cloudflare": "api.cloudflare.com"}.get(self.provider)
+        if host:
             try:
-                heard, subtitle = self.recognize(audio)
+                conn = http.client.HTTPSConnection(host, timeout=30, context=ssl.create_default_context())
+                conn.connect()
+                _conns.__dict__.setdefault("pool", {})[host] = conn
+            except OSError:
+                pass
+        while True:
+            fn, args = self._jobs.get()
+            try:
+                fn(*args)
             except Exception as e:
-                if time.time() - self._last_error > _ERROR_EVERY:
-                    self._last_error = time.time()
-                    ui_q.put(("error", f"{PROVIDERS[self.provider]} captions failed: {e}", ""))
                 print(f"cloud captions: {e}")
-                continue
-            if heard and not live_subs.is_junk(heard):
-                ui_q.put(("final", heard, subtitle))
-                tr.add(start, end, heard, subtitle)
-                self.context = heard
 
-    # ---- one sentence: audio -> (what was said, its translation)
+    # ---- the worker hands audio here (from live_subs.worker; never blocks it)
+    def draft(self, audio, ui_q):
+        """Live line for the sentence still being spoken; skipped while the previous draft is in flight."""
+        with self._lock:
+            if self._drafting >= DRAFTS_IN_FLIGHT:
+                return
+            self._drafting += 1
+            self._draft_seq += 1
+            uid, seq = self._utterance + 1, self._draft_seq
+        self._jobs.put((self._run_draft, (audio.copy(), uid, seq, ui_q)))
+
+    def submit(self, audio, start, end, ui_q, transcript):
+        """A finished sentence: recognized in parallel with others, shown in the order spoken."""
+        with self._lock:
+            self._utterance += 1
+            uid = self._utterance
+        self._jobs.put((self._run_final, (audio.copy(), uid, start, end, ui_q, transcript)))
+
+    def _run_draft(self, audio, uid, seq, ui_q):
+        try:
+            heard, subtitle = self.recognize(audio)
+        except Exception as e:
+            heard = subtitle = ""
+            print(f"cloud draft: {e}")
+        with self._lock:
+            self._drafting -= 1
+            # only for the sentence still being spoken, and never older than a draft already shown
+            show = uid == self._utterance + 1 and uid > self._shown and seq > self._draft_shown
+            if show and heard and not live_subs.is_junk(heard):
+                self._draft_shown = seq
+                ui_q.put(("draft", heard, subtitle))
+
+    def _run_final(self, audio, uid, start, end, ui_q, tr):
+        try:
+            result = self.recognize(audio)
+        except Exception as e:
+            result = ("", "")
+            if time.time() - self._last_error > _ERROR_EVERY:
+                self._last_error = time.time()
+                ui_q.put(("error", f"{PROVIDERS[self.provider]} captions failed: {e}", ""))
+            print(f"cloud captions: {e}")
+        with self._lock:
+            self._pending[uid] = (result, start, end)
+            while self._shown + 1 in self._pending:          # show finished sentences in order
+                self._shown += 1
+                (heard, subtitle), s, e = self._pending.pop(self._shown)
+                if heard and not live_subs.is_junk(heard):
+                    ui_q.put(("final", heard, subtitle))
+                    tr.add(s, e, heard, subtitle)
+                    self.context = heard
+                if self._shown == self._utterance:           # nothing newer is being spoken
+                    ui_q.put(("draft", "", ""))
+
+    # ---- one piece of speech: audio -> (what was said, its translation)
     def recognize(self, audio):
+        self._requests += 1
+        if self._requests == 1:
+            print(f"☁️ First request: {len(audio) / live_subs.SR:.1f} s of speech")
         if self.provider == "gemini":
             return self._gemini(audio)
         heard = self._openai(audio) if self.provider == "openai" else self._cloudflare(audio)
@@ -108,9 +197,9 @@ class CloudEngine(live_subs.Engine):
     def _gemini(self, audio):
         src = models.LANGUAGES[self.language]
         dst = models.LANGUAGES[models.SUBTITLES[self.language]]
-        prompt = (f"This is one sentence from a live meeting, spoken in {src}. Transcribe exactly what is "
-                  f"said, in {src}, then translate it into natural {dst}. Return JSON with the keys "
-                  f'"heard" and "translation". If there is no clear speech (silence, music, noise), '
+        prompt = (f"This is speech from a live meeting, spoken in {src}; it may end mid-sentence. Transcribe "
+                  f"exactly what is said, in {src}, then translate it into natural {dst}. Return JSON with the "
+                  f'keys "heard" and "translation". If there is no clear speech (silence, music, noise), '
                   f"return empty strings; never invent words.")
         if self.glossary:
             prompt += f" Names and terms that may come up (spell them like this): {self.glossary}."
@@ -120,16 +209,20 @@ class CloudEngine(live_subs.Engine):
                     "mime_type": "audio/wav", "data": base64.b64encode(wav_bytes(audio)).decode()}}]}],
                 "generationConfig": {"responseMimeType": "application/json", "temperature": 0}}
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model_name}:generateContent"
-        if self.thinking:
-            body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": "low"}
-        try:
-            data = _post_json(url, body, {"x-goog-api-key": self.key})
-        except RuntimeError as e:
-            if not (self.thinking and "thinking" in str(e).lower()):
-                raise
-            self.thinking = False   # this model has no thinking levels: ask again without
-            del body["generationConfig"]["thinkingConfig"]
-            data = _post_json(url, body, {"x-goog-api-key": self.key})
+        while True:
+            level = self.thinking
+            if level:
+                body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": level}
+            else:
+                body["generationConfig"].pop("thinkingConfig", None)
+            try:
+                data = _post_json(url, body, {"x-goog-api-key": self.key})
+                break
+            except RuntimeError as e:
+                if not (level and "thinking" in str(e).lower()):
+                    raise
+                # this model refuses that level: try the next one up, then no thinking config at all
+                self.thinking = {"minimal": "low"}.get(level)
         parts = data["candidates"][0]["content"].get("parts", [])
         out = json.loads("".join(p.get("text", "") for p in parts) or "{}")
         heard = live_subs.collapse_repeats((out.get("heard") or "").strip())

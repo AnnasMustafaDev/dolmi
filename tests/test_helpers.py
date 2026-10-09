@@ -183,10 +183,11 @@ def test_cloudflare_puts_the_account_id_in_the_endpoint():
 def test_cloud_captions_send_whole_sentences_and_parse_gemini():
     import json, queue, threading, time, numpy as np
     import cloud_speech
-    sent = []
+    sent, drafts = [], []
     class Fake:
-        cloud = True
+        cloud, DRAFT_EVERY = True, 0.5
         def submit(self, audio, start, end, ui_q, tr): sent.append(len(audio) / m.SR)
+        def draft(self, audio, ui_q): drafts.append(len(audio) / m.SR)
     audio_q, ui_q, stop = queue.Queue(), queue.Queue(), threading.Event()
     speaking = threading.Event(); speaking.set()
     def detect(_): return 0.0 if speaking.is_set() else None
@@ -197,11 +198,12 @@ def test_cloud_captions_send_whole_sentences_and_parse_gemini():
         audio_q.put(np.full(1600, 0.1 if speaking.is_set() else 0.0, np.float32))
         time.sleep(0.1)
     stop.set(); t.join()
-    assert len(sent) == 1 and sent[0] >= 1.4 and ui_q.empty()   # one whole sentence, no drafts
+    assert len(sent) == 1 and sent[0] >= 1.4 and ui_q.empty()   # one whole sentence ...
+    assert drafts and drafts[0] >= 0.8                         # ... with live drafts while it was spoken
 
     eng = cloud_speech.CloudEngine.__new__(cloud_speech.CloudEngine)
-    eng.provider, eng.key, eng.language, eng.model_name, eng.thinking, eng.context = "gemini", "k", "de", "gemini-3.8-flash", True, ""
-    eng.glossary, eng.vocab = "Acme", m.Vocabulary(m.Path("/nonexistent"))
+    eng.provider, eng.key, eng.language, eng.model_name, eng.thinking, eng.context = "gemini", "k", "de", "gemini-3.1-flash-lite", "minimal", ""
+    eng.glossary, eng.vocab, eng._requests = "Acme", m.Vocabulary(m.Path("/nonexistent")), 0
     calls = []
     def fake_post(url, body, headers, timeout=30):
         calls.append(body)
@@ -214,4 +216,32 @@ def test_cloud_captions_send_whole_sentences_and_parse_gemini():
         assert eng.recognize(np.zeros(16000, np.float32)) == ("Wir starten am Montag.", "We start on Monday.")
     finally:
         cloud_speech._post_json = real
-    assert eng.thinking is False and len(calls) == 2 and "Acme" in calls[1]["contents"][0]["parts"][0]["text"]
+    assert eng.thinking is None and len(calls) == 3 and "Acme" in calls[2]["contents"][0]["parts"][0]["text"]
+
+def test_cloud_finals_show_in_spoken_order_even_when_replies_arrive_out_of_order():
+    import queue, time, numpy as np
+    import cloud_speech
+    eng = cloud_speech.CloudEngine.__new__(cloud_speech.CloudEngine)
+    import threading
+    eng._jobs, eng._lock, eng._requests = queue.Queue(), threading.Lock(), 0
+    def serve():
+        while True:
+            fn, args = eng._jobs.get(); fn(*args)
+    for _ in range(4):
+        threading.Thread(target=serve, daemon=True).start()
+    eng._utterance = eng._shown = 0; eng._pending = {}; eng._drafting = False; eng._last_error = 0.0
+    eng.context, eng.provider = "", "gemini"
+    def slow_first(audio):
+        if audio[0] == 1:
+            time.sleep(0.4)
+        return (f"Satz {int(audio[0])}", f"Sentence {int(audio[0])}")
+    eng.recognize = slow_first
+    class Tr:
+        rows = []
+        def add(self, s, e, heard, sub): self.rows.append(heard)
+    ui_q, tr = queue.Queue(), Tr()
+    for n in (1, 2, 3):
+        eng.submit(np.full(16000, n, np.float32), 0, 1, ui_q, tr)
+    time.sleep(0.8)
+    finals = [a for kind, a, b in list(ui_q.queue) if kind == "final"]
+    assert finals == ["Satz 1", "Satz 2", "Satz 3"] and tr.rows == finals

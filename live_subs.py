@@ -26,6 +26,7 @@ PAUSE_TO_FINALIZE = 0.6    # s of silence that ends a sentence
 MAX_UTTERANCE = 12.0       # s, force-finalize long monologues
 MIN_SENTENCE = 3.0         # s, a draft ending in . ? ! this long is finalized without a pause
 SILENCE_RMS = 0.006        # energy threshold (raise if noisy)
+CLOUD_SPLIT, CLOUD_BREATH, CLOUD_MAX = 3.0, 0.2, 6.0   # cloud captions: cut long speech sooner
 
 HALLUCINATIONS = [         # typical Whisper output on silence / noise
     "untertitel", "amara.org", "zdf", "vielen dank fürs zuschauen",
@@ -286,11 +287,15 @@ def worker(eng, audio_q, ui_q, tr, stop, detect=speech_gap):
         pause = now - last_voice
 
         finalize = pause >= PAUSE_TO_FINALIZE or dur >= MAX_UTTERANCE
-        if getattr(eng, "cloud", False):   # cloud captions: one request per finished sentence, off this thread
-            if finalize:
+        if getattr(eng, "cloud", False):   # cloud captions: requests run off this thread, so nothing waits
+            # long speech is cut at a short breath so captions keep flowing (requests are ~1 s each)
+            if finalize or (dur >= CLOUD_SPLIT and pause >= CLOUD_BREATH) or dur >= CLOUD_MAX:
                 if dur > 0.8:
                     eng.submit(buf, utt_start, now, ui_q, tr)
-                buf, utt_start = np.zeros(0, np.float32), None
+                buf, utt_start, last_draft = np.zeros(0, np.float32), None, 0.0
+            elif dur >= 0.8 and now - last_draft >= eng.DRAFT_EVERY:   # shorter clips get guessed at
+                eng.draft(buf, ui_q)              # live line ~1 s after the words, not after the sentence
+                last_draft = now
             continue
         if not finalize and (now - last_draft < DRAFT_EVERY or dur <= 0.8):
             continue   # not time for a draft yet

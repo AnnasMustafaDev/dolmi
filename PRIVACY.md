@@ -17,7 +17,7 @@ That provider's own terms and privacy policy apply to this data: [Anthropic](htt
 
 ## 2. Speech and translation models — downloaded from Hugging Face
 
-The first time you start a session, or when you press **Download** in Settings, Dolmi downloads its models from [Hugging Face](https://huggingface.co): the Whisper speech model and the Opus-MT translator for your language. This happens once per model. The download sends no personal data, only what any download sends, such as your IP address.
+When you press **Download** in *Settings → This PC & speech models*, or agree to download when Start needs a model you don't have yet, Dolmi downloads its models from [Hugging Face](https://huggingface.co): the Whisper speech model and the Opus-MT translator for your language. This happens once per model. The download sends no personal data, only what any download sends, such as your IP address.
 
 ## 3. GPU add-on (optional) — downloaded from PyPI
 

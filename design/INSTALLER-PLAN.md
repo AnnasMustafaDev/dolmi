@@ -22,7 +22,7 @@
 | Scope | Per user by default (`PrivilegesRequired=lowest`), "all users" offered in a dialog | No admin prompt. `/CURRENTUSER` and `/ALLUSERS` work for package managers. |
 | AppId | `{01C6145B-761B-4EB9-A11D-36BEE004B479}` | **Never change it.** Upgrades and the single Apps & features entry depend on it. |
 | GPU | Optional task: pip installs `nvidia-cublas-cu12` + `nvidia-cudnn-cu12` (~1.3 GB) into `{app}\gpu` | Keeps `setup.exe` small. With these libraries, Auto picks Whisper large-v3-turbo on CUDA. |
-| Models | Not bundled; downloaded on first use or from *Settings → This PC & models*, with progress shown | A single speech model is 0.5–3 GB, and which one fits depends on the PC. Settings shows what the PC can run. |
+| Models | Not bundled. The user picks and downloads them in *Settings → This PC & speech models*; if Start needs a missing model, Dolmi asks first (size shown) instead of downloading silently | A single speech model is 0.5–3 GB, and which one fits depends on the PC. Settings shows what the PC can run. |
 | Web assets | Fonts and icons vendored into `src/ui/web/vendor` | Works offline, and nothing contacts a font server or CDN. |
 
 ## Where things live

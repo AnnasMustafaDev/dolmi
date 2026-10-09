@@ -1,8 +1,8 @@
 # Dolmi privacy policy
 
-Dolmi has no account, no telemetry and no analytics. **Speech recognition and translation run on your PC. Your audio never leaves it.**
+Dolmi has no account, no telemetry and no analytics. **Speech recognition and translation run on your Mac. Your audio never leaves it.**
 
-Dolmi only uses the network in the three cases below. You start each one yourself.
+Dolmi only uses the network in the two cases below. You start each one yourself.
 
 ## 1. Assistant and summaries — to the AI provider you chose (optional)
 
@@ -17,24 +17,20 @@ That provider's own terms and privacy policy apply to this data: [Anthropic](htt
 
 ## 2. Speech and translation models — downloaded from Hugging Face
 
-When you press **Download** in *Settings → This PC & speech models*, or agree to download when Start needs a model you don't have yet, Dolmi downloads its models from [Hugging Face](https://huggingface.co): the Whisper speech model and the Opus-MT translator for your language. This happens once per model. The download sends no personal data, only what any download sends, such as your IP address.
+When you press **Download** in *Settings → This Mac & speech models*, or agree to download when Start needs a model you don't have yet, Dolmi downloads its models from [Hugging Face](https://huggingface.co): the Whisper speech model and the Opus-MT translator for your language. This happens once per model. The download sends no personal data, only what any download sends, such as your IP address.
 
-## 3. GPU add-on (optional) — downloaded from PyPI
-
-If you tick **GPU speech recognition** in the installer, it downloads NVIDIA's CUDA libraries from [PyPI](https://pypi.org) once, during setup.
-
-## What stays on your PC
+## What stays on your Mac
 
 | What | Where |
 |---|---|
-| Settings, API keys (encrypted with Windows DPAPI), vocabulary, glossary | `%APPDATA%\Dolmi` |
-| Transcripts, summaries, saved lines, Assistant chats | `Documents\Dolmi` (change it in Settings) |
-| Log file | `%LOCALAPPDATA%\Dolmi\dolmi.log` |
-| Speech and translation models | `%USERPROFILE%\.cache\huggingface` |
+| Settings, API keys (encrypted with a secret in your login Keychain), vocabulary, glossary | `~/Library/Application Support/Dolmi` |
+| Transcripts, summaries, saved lines, Assistant chats | `~/Documents/Dolmi` (change it in Settings) |
+| Log file | `~/Library/Logs/Dolmi/dolmi.log` |
+| Speech and translation models | `~/.cache/huggingface` |
 
 - To stop saving, turn off **Save transcripts** in Settings.
 - To delete old files and chats automatically, use **Delete after**.
-- Uninstalling Dolmi keeps your data. Delete the folders above to remove it.
+- Deleting Dolmi.app keeps your data. Delete the folders above to remove it.
 
 **Recording other people:** transcribing a meeting processes the other participants' personal data. Tell them you are using live transcription. *(This is not legal advice.)*
 

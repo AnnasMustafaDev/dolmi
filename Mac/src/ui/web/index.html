@@ -229,7 +229,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
   <section class="view a" id="v-live">
     <div class="hero">
       <div>
-        <div class="eye" id="eye">ON THIS PC</div>
+        <div class="eye" id="eye">ON THIS MAC</div>
         <h1 id="hero">A clear bridge between<br><em>two languages.</em></h1>
       </div>
       <div class="sess">
@@ -263,7 +263,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
 
   <!-- MEETINGS -->
   <section class="view" id="v-meetings"><div class="wrap" style="display:flex;flex-direction:column">
-    <div class="ph"><div><h2>Meetings</h2><p>Every session saved on this PC, in both languages. Removed after 30 days.</p></div>
+    <div class="ph"><div><h2>Meetings</h2><p>Every session saved on this Mac, in both languages. Removed after 30 days.</p></div>
       <div class="acts">
         <button class="btn ghost" id="mArchView" title="Show archived meetings"><span class="ic"><i data-lucide="archive" style="width:15px;height:15px"></i></span>Archived</button>
         <button class="btn ghost" id="mCopy" title="Copy the whole transcript"><span class="ic"><i data-lucide="copy" style="width:15px;height:15px"></i></span>Copy</button>
@@ -326,24 +326,24 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
 
   <!-- SETTINGS -->
   <section class="view" id="v-settings"><div class="wrap">
-    <div class="ph"><div><h2>Settings</h2><p>Speech &amp; translation run on this PC. Only the Assistant chat goes to the AI.</p></div>
+    <div class="ph"><div><h2>Settings</h2><p>Speech &amp; translation run on this Mac. Only the Assistant chat goes to the AI.</p></div>
       <button class="btn dark" id="openOnb"><span class="ic"><i data-lucide="wand-sparkles" style="width:15px;height:15px"></i></span>Run setup</button></div>
     <div class="grid2">
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
-        <div class="set"><div><div class="lab">Listen to</div><div class="ps">The speaker your meeting plays through</div></div><select class="field" id="setDevice"><option value="">Default speaker</option></select></div>
-        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this PC</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this PC)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
+        <div class="set"><div><div class="lab">Listen to</div><div class="ps">Everything your Mac plays, or a microphone</div></div><select class="field" id="setDevice"><option value="">All Mac audio</option></select></div>
+        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this Mac</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this Mac)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
         <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Translated into English</div></div><select class="field" id="setLang"><option value="de">German</option><option value="auto">Auto-detect</option></select></div>
         <div class="set"><div><div class="lab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="sparkles"></i></span>Assistant</div>
         <div class="set"><div><div class="lab">Provider</div></div><div class="seg" id="setProvider"><button data-p="claude" class="a">Claude</button><button data-p="openai">OpenAI</button><button data-p="gemini">Gemini</button><button data-p="nvidia">NVIDIA</button></div></div>
-        <div class="set"><div><div class="lab">API key</div><div class="ps">Encrypted with Windows DPAPI</div></div>
+        <div class="set"><div><div class="lab">API key</div><div class="ps">Encrypted with your Mac Keychain</div></div>
           <div style="display:flex;gap:8px"><input class="field" id="setKey" type="password" placeholder="sk-…" style="width:140px;font-family:var(--mono)"><button class="btn ghost" id="setTest">Test</button></div></div>
         <div class="set"><div><div class="lab">Model</div><div class="ps">Leave empty for the default</div></div><input class="field" id="setAiModel" spellcheck="false" style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></div>
         <div class="set"><div><div class="lab">Status</div></div><span class="ok" id="keyStatus" style="color:var(--mute)">—</span></div>
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="shield-check"></i></span>Privacy &amp; stealth</div>
-        <div class="set"><div><div class="lab">Invisible mode</div><div class="ps">Hidden from screen shares and the taskbar. Ctrl+Alt+Shift+D to exit.</div></div><button class="sw on" data-sw id="swInv"></button></div>
+        <div class="set"><div><div class="lab">Invisible mode</div><div class="ps">Hidden from screen shares and the Dock. ⌃⌥⇧D to exit.</div></div><button class="sw on" data-sw id="swInv"></button></div>
         <div class="set"><div><div class="lab">Subtitle bar</div><div class="ps">The floating caption bar only you see. Opens with Start when on; also the Subtitles button at the top.</div></div><button class="sw on" data-sw id="swBar"></button></div>
         <div class="set"><div><div class="lab">Save transcripts</div></div><button class="sw on" data-sw id="swSave"></button></div>
         <div class="set"><div><div class="lab">Delete after</div></div><div class="seg" id="setKeep"><button data-d="0">Never</button><button data-d="7">7d</button><button data-d="30" class="a">30d</button><button data-d="90">90d</button></div></div>
@@ -353,9 +353,9 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
         <div class="set"><div><div class="lab">Subtitle bar opacity</div><div class="ps">Lower lets the window behind show through</div></div><div style="display:flex;gap:10px;align-items:center"><input type="range" id="setOpacity" min="30" max="100" value="88" style="accent-color:var(--ac);width:150px"><span class="mtag" id="setOpacityVal">88%</span></div></div>
         <div class="set"><div><div class="lab">Subtitle text size</div></div><div style="display:flex;gap:10px;align-items:center"><input type="range" id="setFont" min="14" max="40" value="22" style="accent-color:var(--ac);width:150px"><span class="mtag" id="setFontVal">22 px</span></div></div>
       </div>
-      <div class="card" id="modelsCard" style="grid-column:1/-1"><div class="cardh"><span class="ic"><i data-lucide="cpu"></i></span>This PC &amp; speech models</div>
-        <div class="ps">Detected on this PC, never assumed. You choose which models to download; they download once per Windows user and run locally.</div>
-        <div class="chips" id="specs" style="margin-top:12px"><span class="chipt">Checking this PC…</span></div>
+      <div class="card" id="modelsCard" style="grid-column:1/-1"><div class="cardh"><span class="ic"><i data-lucide="cpu"></i></span>This Mac &amp; speech models</div>
+        <div class="ps">Detected on this Mac, never assumed. You choose which models to download; they download once per Mac user and run locally.</div>
+        <div class="chips" id="specs" style="margin-top:12px"><span class="chipt">Checking this Mac…</span></div>
         <div id="modelList" class="mlist"><div class="ps">Loading models…</div></div>
         <div class="mfoot"><span class="ic"><i data-lucide="folder"></i></span><span id="modelDir">—</span><button class="btn ghost" id="openModels" style="margin-left:auto">Open folder</button></div>
       </div>
@@ -433,9 +433,9 @@ $('#go').onclick=()=>{
 
 /* onboarding */
 const STEPS=[
- {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this PC. Only the optional Assistant chat goes to the AI.',b:''},
+ {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this Mac. Only the optional Assistant chat goes to the AI.',b:''},
  {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
- {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this PC: {PC}. Pick your speech model in Settings → This PC &amp; models, or press Start and Dolmi asks before downloading the one that suits this PC.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
+ {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this Mac: {PC}. Pick your speech model in Settings → This Mac &amp; models, or press Start and Dolmi asks before downloading the one that suits this Mac.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
 ];
 let step=0;
 function render(){ const s=STEPS[step];
@@ -588,7 +588,7 @@ if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey
 if($('#setTest')) $('#setTest').onclick=async()=>{ const b=bridge(), st=$('#keyStatus'); if(!b){ if(st) st.textContent='Runs in the app'; return; } if(st) st.textContent='Testing…'; const r=await b.test_key(); if(st) st.textContent=(r.ok?'✓ ':'✗ ')+r.message; };
 
 /* ---- copy / archive / delete ---- */
-let mArch=false,aArch=false,currentPairs=[],currentMsgs=[],pcSummary='this PC',modelChip='Speech: auto';
+let mArch=false,aArch=false,currentPairs=[],currentMsgs=[],pcSummary='this Mac',modelChip='Speech: auto';
 async function copyText(t){ const b=bridge(); let ok=false; if(b){ try{ ok=await b.copy_text(t); }catch(e){} } if(!ok){ try{ await navigator.clipboard.writeText(t); ok=true; }catch(e){} } toast(ok?'Copied to clipboard':'Could not copy'); }
 function meetingText(){ return currentPairs.map(p=>`[${p.ts}] ${p.en}\n        ${p.de}`).join('\n\n'); }
 function chatText(){ return currentMsgs.map(m=>`You (${m.when}): ${m.q}\nAssistant: ${m.err||m.a}`).join('\n\n'); }
@@ -601,16 +601,15 @@ $('#aArchView').onclick=()=>{ aArch=!aArch; $('#aArchView').classList.toggle('on
 $('#aCopy').onclick=()=>{ if(!currentMsgs.length){ toast('Open a chat first.'); return; } copyText(chatText()); };
 $('#aArchive').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Open a chat first.'); return; } await b.archive_chat(currentChat,!aArch); if(!aArch) await b.new_chat(); toast(aArch?'Chat restored':'Chat archived'); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Chat restored.':'Chat archived.'); loadChats(); };
 
-/* ---- this PC & models ---- */
+/* ---- this Mac & models ---- */
 async function applyPc(){ const b=bridge(); if(!b) return; const pc=await b.pc_info();
-  const gpuShort=(pc.gpu_name||'NVIDIA GPU').replace(/^NVIDIA\s+(GeForce\s+)?/i,'');
-  pcSummary=`${pc.gpu?gpuShort:'no NVIDIA GPU'} · ${pc.ram_gb} GB RAM · ${pc.cores} CPU threads`;
-  modelChip=pc.gpu?'GPU · large-v3-turbo':'CPU · small';
-  $('#eye').textContent='ON THIS PC · '+(pc.gpu?gpuShort.toUpperCase():'CPU ONLY');
-  if($('#modelHint')) $('#modelHint').textContent=pc.gpu?`Auto picks large-v3-turbo on your ${gpuShort}`:'No usable NVIDIA GPU — Auto picks Small, which runs on the CPU';
-  const nvidia=/nvidia/i.test(pc.gpu_name||''), speech=pc.gpu?['GPU speech ready','on']:nvidia?['NVIDIA found, GPU add-on not installed','warn']:['Speech runs on the CPU',''];
-  if($('#specs')) $('#specs').innerHTML=[[pc.gpu_name||'No dedicated GPU found',''],[pc.ram_gb?pc.ram_gb+' GB RAM':'RAM unknown',''],[pc.cores+' CPU threads',''],speech].map(([t,c])=>`<span class="chipt ${c}">${esc(t)}</span>`).join('');
-  if($('#modelDir')) $('#modelDir').textContent=(pc.model_dir||'Model folder unknown')+' — shared by every Dolmi install for this Windows user';
+  const chip=pc.gpu_name||'Mac';
+  pcSummary=`${chip} · ${pc.ram_gb} GB RAM · ${pc.cores} CPU cores`;
+  modelChip='CPU · small';
+  $('#eye').textContent='ON THIS MAC · '+chip.toUpperCase();
+  if($('#modelHint')) $('#modelHint').textContent=`Auto picks Small, which runs live on your ${chip}`;
+  if($('#specs')) $('#specs').innerHTML=[[chip,''],[pc.ram_gb?pc.ram_gb+' GB RAM':'RAM unknown',''],[pc.cores+' CPU cores',''],['Speech runs on the CPU','']].map(([t,c])=>`<span class="chipt ${c}">${esc(t)}</span>`).join('');
+  if($('#modelDir')) $('#modelDir').textContent=(pc.model_dir||'Model folder unknown')+' — shared by every Dolmi install for this Mac user';
 }
 function fmtMb(mb){ return mb>=1000?(mb/1000).toFixed(1)+' GB':Math.round(mb)+' MB'; }
 async function loadModels(){ const b=bridge(), box=$('#modelList'); if(!box) return; if(!b){ box.innerHTML='<div class="ps">Models are managed when running in the app.</div>'; return; }
@@ -635,7 +634,7 @@ function askDownload(missing){
   let s=document.getElementById('dlModal');
   if(!s){ s=document.createElement('div'); s.id='dlModal'; s.className='scrim'; document.body.append(s); s.onclick=e=>{ if(e.target.id==='dlModal') s.hidden=true; }; }
   const total=missing.reduce((a,m)=>a+m.sizeMb,0);
-  s.innerHTML=`<div class="onb" style="max-width:480px"><h3 style="font-size:24px">Download models first?</h3><p style="margin-top:10px;color:var(--mute);font-size:14px;line-height:1.55">Dolmi needs these on this PC before it can caption. They download once (${fmtMb(total)}) and then work offline.</p><div class="mlist">${missing.map(m=>`<div class="set" style="padding:6px 0"><b>${esc(m.name)}</b><span class="mtag">${fmtMb(m.sizeMb)}</span></div>`).join('')}</div><div class="foot" style="justify-content:flex-end;gap:8px"><button class="btn ghost" id="dlPick">Choose another model</button><button class="btn pri" id="dlGo">Download &amp; start</button></div></div>`;
+  s.innerHTML=`<div class="onb" style="max-width:480px"><h3 style="font-size:24px">Download models first?</h3><p style="margin-top:10px;color:var(--mute);font-size:14px;line-height:1.55">Dolmi needs these on this Mac before it can caption. They download once (${fmtMb(total)}) and then work offline.</p><div class="mlist">${missing.map(m=>`<div class="set" style="padding:6px 0"><b>${esc(m.name)}</b><span class="mtag">${fmtMb(m.sizeMb)}</span></div>`).join('')}</div><div class="foot" style="justify-content:flex-end;gap:8px"><button class="btn ghost" id="dlPick">Choose another model</button><button class="btn pri" id="dlGo">Download &amp; start</button></div></div>`;
   s.hidden=false;
   s.querySelector('#dlPick').onclick=()=>{ s.hidden=true; const n=$('.nav button[data-v="settings"]'); if(n) n.click(); setTimeout(()=>{ const c=$('#modelsCard'); if(c) c.scrollIntoView({behavior:'smooth'}); },60); };
   s.querySelector('#dlGo').onclick=()=>{ s.hidden=true; startLive(true); };
@@ -672,7 +671,7 @@ async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.sta
   $('#status').innerHTML='Ready<b>'+esc(engineLabel)+'</b>';
   setRange('#setFont',s.font); setRange('#setOpacity',Math.round(s.opacity*100));
   applyPc();
-  try{ const devs=await b.devices(); if($('#setDevice')){ $('#setDevice').innerHTML='<option value="">Default speaker</option>'+devs.map(d=>`<option ${d===s.audioDevice?'selected':''}>${esc(d)}</option>`).join(''); $('#setDevice').onchange=()=>b.set_setting('audio_device',$('#setDevice').value); } }catch(e){}
+  try{ const devs=await b.devices(); if($('#setDevice')){ $('#setDevice').innerHTML='<option value="">All Mac audio</option>'+devs.map(d=>`<option ${d===s.audioDevice?'selected':''}>${esc(d)}</option>`).join(''); $('#setDevice').onchange=()=>b.set_setting('audio_device',$('#setDevice').value); } }catch(e){}
 }catch(e){ console.error('boot',e); } }
 if(window.pywebview&&window.pywebview.api) boot(); else window.addEventListener('pywebviewready',boot);
 

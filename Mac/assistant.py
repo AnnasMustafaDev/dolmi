@@ -1,11 +1,11 @@
 """Dolmi Assistant mode: answers spoken English technical questions with a fast cloud model.
 
 Providers: Claude (Anthropic), OpenAI, Gemini (Google) or NVIDIA. Gemini and NVIDIA are reached
-through their OpenAI-compatible endpoints, so the openai package talks to all three. API keys are encrypted with Windows DPAPI, so only the
-signed-in Windows user can read them; settings.json never holds a key in plain text.
+through their OpenAI-compatible endpoints, so the openai package talks to all three. API keys are encrypted with a secret kept in the macOS
+login Keychain, so only the signed-in Mac user can read them; settings.json never holds a key in
+plain text.
 """
-import base64, ctypes, getpass, hashlib, hmac, os, re
-from ctypes import wintypes
+import base64, getpass, hashlib, hmac, os, re, secrets
 
 PROVIDERS = {
     "claude": {"label": "Claude (Anthropic)", "model": "claude-haiku-4-5",
@@ -95,7 +95,7 @@ def _pro_token():
     return f"dolmi-pro:{getpass.getuser()}"
 
 def pro_unlock_value():
-    """Stored in settings; DPAPI-encrypted for this Windows user, so it can't be copied to another PC."""
+    """Stored in settings; encrypted with this Mac user's Keychain secret, so it can't be copied to another Mac."""
     return encrypt_key(_pro_token())
 
 def is_pro(stored):
@@ -119,27 +119,48 @@ def is_question(text):
     t = text.strip()
     return len(t.split()) >= 2 and bool(QUESTION_START.match(t) or QUESTION_ANYWHERE.search(t))
 
-# ------------------------------------------------------------------ key storage (DPAPI)
-class _Blob(ctypes.Structure):
-    _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
+# ------------------------------------------------------------------ key storage (Keychain)
+# A random 32-byte secret lives in the login Keychain (service "Dolmi"). Keys are encrypted with an
+# HMAC-SHA256 keystream (CTR) and authenticated with HMAC-SHA256, all from the standard library.
+_KEYCHAIN = ("Dolmi", "settings-encryption")
+_secret = None
 
-def _dpapi(protect, data):
-    buf = ctypes.create_string_buffer(data, len(data))
-    blob_in, blob_out = _Blob(len(data), ctypes.cast(buf, ctypes.POINTER(ctypes.c_char))), _Blob()
-    fn = ctypes.windll.crypt32.CryptProtectData if protect else ctypes.windll.crypt32.CryptUnprotectData
-    if not fn(ctypes.byref(blob_in), None, None, None, None, 0, ctypes.byref(blob_out)):
-        raise OSError("Windows could not encrypt/decrypt the API key")
+def _master():
+    global _secret
+    if _secret is None:
+        import keyring
+        stored = keyring.get_password(*_KEYCHAIN)
+        if not stored:
+            stored = secrets.token_hex(32)
+            keyring.set_password(*_KEYCHAIN, stored)
+        _secret = bytes.fromhex(stored)
+    return _secret
+
+def _stream(key, nonce, n):
+    out = b"".join(hmac.digest(key, nonce + i.to_bytes(4, "big"), "sha256") for i in range((n + 31) // 32))
+    return out[:n]
+
+def _seal(protect, data):
     try:
-        return ctypes.string_at(blob_out.pbData, blob_out.cbData)
-    finally:
-        ctypes.windll.kernel32.LocalFree(blob_out.pbData)
+        master = _master()
+    except Exception as e:
+        raise OSError(f"the Keychain could not encrypt/decrypt the API key ({e})")
+    enc, mac = hmac.digest(master, b"enc", "sha256"), hmac.digest(master, b"mac", "sha256")
+    if protect:
+        nonce = secrets.token_bytes(16)
+        body = bytes(a ^ b for a, b in zip(data, _stream(enc, nonce, len(data))))
+        return nonce + body + hmac.digest(mac, nonce + body, "sha256")
+    nonce, body, tag = data[:16], data[16:-32], data[-32:]
+    if len(data) < 48 or not hmac.compare_digest(tag, hmac.digest(mac, nonce + body, "sha256")):
+        raise ValueError("not encrypted by this Mac user")
+    return bytes(a ^ b for a, b in zip(body, _stream(enc, nonce, len(body))))
 
 def encrypt_key(key):
-    return base64.b64encode(_dpapi(True, key.encode())).decode() if key else ""
+    return base64.b64encode(_seal(True, key.encode())).decode() if key else ""
 
 def decrypt_key(stored):
     try:
-        return _dpapi(False, base64.b64decode(stored)).decode() if stored else ""
+        return _seal(False, base64.b64decode(stored)).decode() if stored else ""
     except (OSError, ValueError):
         return ""
 

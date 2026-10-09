@@ -8,7 +8,6 @@ All state is held in underscore attributes on purpose: pywebview exposes every *
 the js_api object to page JavaScript (recursively), which would hand the page the window object, the
 Whisper model, the settings with the encrypted keys, and the database handle.
 """
-import ctypes
 import itertools
 import json
 import os
@@ -25,16 +24,10 @@ import assistant
 import inbox
 import live_subs
 
-# Win32 bits for invisible mode (stealth.py's helpers are tkinter-only; these act on a raw HWND)
-WDA_NONE = 0x00
-WDA_EXCLUDEFROMCAPTURE = 0x11
-GWL_EXSTYLE = -20
-WS_EX_TOOLWINDOW = 0x00000080
-WS_EX_APPWINDOW = 0x00040000
-_SWP = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020  # NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|FRAMECHANGED
-_u = ctypes.windll.user32
+import stealth
 
 VERSION = config.version()
+ICON = config.ROOT / "assets" / "dolmi.png"   # the Dock icon when running from source
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
 SETTABLE = {"language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
@@ -45,59 +38,14 @@ def _js(v):
     return json.dumps(v)
 
 
-def _native_hwnd(win, title):
-    """Top-level HWND for a pywebview window: .native first, window title as the fallback."""
-    try:
-        native = getattr(win, "native", None)
-        if native is not None:
-            return int(native.Handle.ToInt32())
-    except Exception:
-        pass
-    try:
-        return _u.FindWindowW(None, title) if win else 0
-    except Exception:
-        return 0
+def _native(win):
+    """The NSWindow behind a pywebview window (None until it has been created)."""
+    return getattr(win, "native", None) if win else None
 
 
-def _set_toolwindow(hwnd, on):
-    """Off the taskbar and Alt+Tab (on) or back on them (off)."""
-    if not hwnd:
-        return
-    try:
-        ex = _u.GetWindowLongW(hwnd, GWL_EXSTYLE)
-        want = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW if on else (ex | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW
-        if want != ex:
-            _u.SetWindowLongW(hwnd, GWL_EXSTYLE, want)
-            _u.SetWindowPos(hwnd, 0, 0, 0, 0, 0, _SWP)
-    except Exception as e:
-        print(f"invisible: taskbar style failed ({e})")
-
-
-def _gpu_name():
-    """The graphics card's marketing name (NVIDIA first), for display only."""
-    flags = 0x08000000  # CREATE_NO_WINDOW
-    for cmd in (["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
-                ["powershell", "-NoProfile", "-Command",
-                 "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join '|'"]):
-        try:
-            out = subprocess.run(cmd, capture_output=True, text=True, timeout=8, creationflags=flags).stdout
-        except (OSError, subprocess.SubprocessError):
-            continue
-        names = [n.strip() for n in out.replace("|", "\n").splitlines() if n.strip()]
-        if names:
-            return next((n for n in names if "NVIDIA" in n.upper()), names[0])
-    return ""
-
-
-def _set_capture(hwnd, hidden):
-    """Leave the window out of screen shares/recordings (hidden) or include it again."""
-    if not hwnd:
-        return False
-    try:
-        return bool(_u.SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE if hidden else WDA_NONE))
-    except Exception as e:
-        print(f"invisible: capture affinity failed ({e})")
-        return False
+def _open(path):
+    """Show a folder in Finder."""
+    subprocess.run(["open", str(path)], check=False)
 
 
 class Api:
@@ -112,6 +60,7 @@ class Api:
         self._purge_old()
 
         self._window = None                  # set by main
+        self._make_window = None             # set by main: builds a fresh main window
         self._overlay = None
         self._overlay_ready = False          # page loaded -> safe to evaluate_js without blocking
         self._overlay_visible = False
@@ -255,18 +204,16 @@ class Api:
         return True
 
     def pc_info(self):
-        """What this PC has — detected, never assumed — and where Dolmi keeps things."""
+        """What this Mac has — detected, never assumed — and where Dolmi keeps things."""
         if self._pc is None:
             info = {"ram_gb": 0, "cores": os.cpu_count() or 1, "gpu": False, "gpu_name": "",
                     "model_dir": "", "data_dir": str(self._data)}
             try:
-                live_subs._enable_cuda_dlls()          # pip-installed CUDA libs count as installed
                 import models
                 s = models.system_info()
-                info.update(ram_gb=s["ram_gb"], cores=s["cores"], gpu=bool(s["gpu"]))
+                info.update(ram_gb=s["ram_gb"], cores=s["cores"], gpu=bool(s["gpu"]), gpu_name=s["chip"])
             except Exception as e:
                 print(f"pc_info: {e}")
-            info["gpu_name"] = _gpu_name()
             try:
                 from huggingface_hub.constants import HF_HUB_CACHE
                 info["model_dir"] = str(HF_HUB_CACHE)
@@ -276,29 +223,13 @@ class Api:
         return self._pc
 
     def copy_text(self, text):
-        """Put text on the Windows clipboard (works regardless of WebView2 clipboard permissions)."""
-        k32 = ctypes.windll.kernel32
-        k32.GlobalAlloc.restype = ctypes.c_void_p
-        k32.GlobalLock.restype = ctypes.c_void_p
-        k32.GlobalLock.argtypes = [ctypes.c_void_p]
-        k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
-        _u.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
-        data = (text or "").encode("utf-16-le") + b"\x00\x00"
-        for _ in range(10):
-            if _u.OpenClipboard(None):
-                break
-            time.sleep(0.05)
-        else:
-            return False
+        """Put text on the Mac clipboard (works regardless of WebKit clipboard permissions)."""
         try:
-            _u.EmptyClipboard()
-            h = k32.GlobalAlloc(0x0002, len(data))          # GMEM_MOVEABLE
-            ctypes.memmove(k32.GlobalLock(h), data, len(data))
-            k32.GlobalUnlock(h)
-            _u.SetClipboardData(13, h)                       # CF_UNICODETEXT; the clipboard owns h now
-        finally:
-            _u.CloseClipboard()
-        return True
+            subprocess.run(["pbcopy"], input=(text or "").encode("utf-8"), check=True, timeout=5,
+                           env={**os.environ, "LANG": "en_US.UTF-8"})
+            return True
+        except (OSError, subprocess.SubprocessError):
+            return False
 
     # ---- archive (a small JSON next to the data, so the shared inbox schema stays unchanged)
     def _archived(self):
@@ -457,7 +388,8 @@ class Api:
 
     # ------------------------------------------------------------------ models
     def _auto_speech(self):
-        return "large-v3-turbo" if self.pc_info()["gpu"] else "small"
+        import models
+        return models.auto_speech()
 
     def _needed_models(self):
         """The speech model and translator the next Start will use."""
@@ -582,14 +514,14 @@ class Api:
         if d:
             try:
                 Path(d).mkdir(parents=True, exist_ok=True)
-                os.startfile(d)
+                _open(d)
             except OSError as e:
                 print(f"open model folder failed: {e}")
         return True
 
     # ------------------------------------------------------------------ meetings
     def _meeting_path(self, name):
-        """A meeting file inside the data folder, or None (blocks ..\\ and absolute paths)."""
+        """A meeting file inside the data folder, or None (blocks ../ and absolute paths)."""
         try:
             base = self._data.resolve()
             p = (base / str(name)).resolve()
@@ -639,10 +571,9 @@ class Api:
         return True
 
     def open_data_folder(self):
-        import os
         try:
             self._data.mkdir(exist_ok=True)
-            os.startfile(self._data)
+            _open(self._data)
         except OSError as e:
             print(f"open folder failed: {e}")
         return True
@@ -861,10 +792,10 @@ class Api:
         self._emit("onBar", False)
 
     def _stealth_overlay(self):
-        """The bar never has a taskbar button, and follows invisible mode for capture."""
-        hwnd = _native_hwnd(self._overlay.window if self._overlay else None, "Dolmi overlay")
-        _set_toolwindow(hwnd, True)
-        _set_capture(hwnd, self._settings["invisible"])
+        """The bar floats on every Space and over full-screen meetings, and follows invisible mode for capture."""
+        win = _native(self._overlay.window if self._overlay else None)
+        stealth.float_everywhere(win)
+        stealth.exclude_from_capture(win, self._settings["invisible"])
 
     # ------------------------------------------------------------------ invisible mode
     def toggle_invisible(self, on):
@@ -872,20 +803,54 @@ class Api:
         with self._settings_lock:
             self._settings["invisible"] = on
             config.save_settings(self._settings)
-        main = _native_hwnd(self._window, "Dolmi")
-        _set_toolwindow(main, on)
-        _set_capture(main, on)                 # last: a style change can reset the affinity
-        if self._overlay:
-            # Changing capture affinity on a visible WebView2 window can leave it painted blank
-            # (white) until it's re-shown — so re-show it ourselves around the change.
-            ov_hwnd = _native_hwnd(self._overlay.window, "Dolmi overlay")
-            if self._overlay_visible:
-                self._overlay.hide()
-                _set_capture(ov_hwnd, on)
-                self._overlay.show()
-            else:
-                _set_capture(ov_hwnd, on)
+        stealth.apply(_native(self._window), on, dock=True, icon=ICON)
+        if self._overlay and not stealth.exclude_from_capture(_native(self._overlay.window), on):
+            self._rebuild_overlay()
+        if not on and self._window and not stealth.capture_allowed(_native(self._window)):
+            self._rebuild_main()
         return on
+
+    def _rebuild_overlay(self):
+        """A fresh subtitle bar (macOS 27 can't make a hidden-from-capture window capturable again)."""
+        old, visible = self._overlay, self._overlay_visible
+        self._overlay, self._overlay_ready, self._overlay_visible = None, False, False
+        if visible:
+            self.show_overlay()
+        try:
+            old.window.destroy()
+        except Exception as e:
+            print(f"overlay rebuild: {e}")
+
+    def _rebuild_main(self):
+        """A fresh main window at the same place, on the same tab, with this session's captions."""
+        old = self._window
+        if not self._make_window:
+            return
+        try:
+            tab = old.evaluate_js("(document.querySelector('.nav .a')||{dataset:{}}).dataset.v") or "live"
+            geo = dict(x=old.x, y=old.y, width=old.width, height=old.height)
+        except Exception:
+            tab, geo = "live", {}
+        new = self._make_window(**geo)
+
+        def loaded(*_):
+            time.sleep(1.0)                    # let the page's boot() finish first
+            self._emit("onInvisible", False)
+            self._window and self._window.evaluate_js(
+                f"(document.querySelector('.nav [data-v={_js(tab)}]')||{{click(){{}}}}).click()")
+            if self._session:
+                self._emit("onListening", True, self._engine_label())
+                with self._hist_lock:
+                    lines = list(self._history)
+                for ts, de, en in lines:
+                    self._emit("onLine", ts[:5], de, en)
+            self._emit("onBar", bool(self._overlay_visible))
+        new.events.loaded += lambda *a: threading.Thread(target=loaded, daemon=True).start()
+        self._window = new
+        try:
+            old.destroy()
+        except Exception as e:
+            print(f"window rebuild: {e}")
 
     def recover(self):
         """Global-hotkey escape hatch: invisible off, window back, page switches in sync."""

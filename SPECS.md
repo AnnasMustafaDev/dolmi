@@ -105,7 +105,7 @@ Models download from Hugging Face and are cached in `%USERPROFILE%\.cache\huggin
 | `inbox.py` | Local SQLite store (`dolmi.db`) |
 | `stealth.py` | Windows window helper (`SetWindowDisplayAffinity`) |
 | `models.py` | Model catalog, PC check, download / uninstall |
-| `assistant.py` | Optional cloud helper (Claude / OpenAI), DPAPI-encrypted keys |
+| `assistant.py` | Optional cloud helper (Claude / OpenAI / Gemini / NVIDIA), DPAPI-encrypted keys |
 | `live_subs.py` | Engine: capture, recognition, translation, transcripts |
 | `vocabulary.txt` | Translation rules (in `%APPDATA%\Dolmi`) |
 | `glossary.txt` | Spelling hints for speech recognition (in `%APPDATA%\Dolmi`) |

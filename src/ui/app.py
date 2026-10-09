@@ -231,6 +231,8 @@ class Api:
             "saveTranscripts": s["save_transcripts"], "keepDays": s["keep_days"],
             "provider": self._provider(), "providers": {k: v["label"] for k, v in assistant.PROVIDERS.items()},
             "model": self._ai_model(), "hasKey": bool(self._ai_key()),
+            "modelDefault": assistant.PROVIDERS[self._provider()]["model"],
+            "keyHint": assistant.PROVIDERS[self._provider()]["key_hint"],
             "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
             "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
@@ -331,6 +333,18 @@ class Api:
             self._settings["api_keys"][self._provider()] = assistant.encrypt_key((key or "").strip())
             config.save_settings(self._settings)
         return True
+
+    def set_ai_model(self, model):
+        """The Assistant model for the current provider; empty goes back to the provider's default."""
+        model = (model or "").strip()[:120]
+        with self._settings_lock:
+            models = self._settings.setdefault("ai_models", {})
+            if model and model != assistant.PROVIDERS[self._provider()]["model"]:
+                models[self._provider()] = model
+            else:
+                models.pop(self._provider(), None)
+            config.save_settings(self._settings)
+        return self.state()
 
     def set_provider(self, provider):
         if provider in assistant.PROVIDERS:

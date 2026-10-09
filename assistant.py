@@ -1,6 +1,7 @@
 """Dolmi Assistant mode: answers spoken English technical questions with a fast cloud model.
 
-Providers: Claude (Anthropic) or OpenAI. API keys are encrypted with Windows DPAPI, so only the
+Providers: Claude (Anthropic), OpenAI, Gemini (Google) or NVIDIA. Gemini and NVIDIA are reached
+through their OpenAI-compatible endpoints, so the openai package talks to all three. API keys are encrypted with Windows DPAPI, so only the
 signed-in Windows user can read them; settings.json never holds a key in plain text.
 """
 import base64, ctypes, getpass, hashlib, hmac, os, re
@@ -11,6 +12,12 @@ PROVIDERS = {
                "key_hint": "sk-ant-…", "console": "console.anthropic.com"},
     "openai": {"label": "OpenAI", "model": "gpt-5.4-mini",
                "key_hint": "sk-…", "console": "platform.openai.com"},
+    "gemini": {"label": "Gemini (Google)", "model": "gemini-3-flash-preview",
+               "key_hint": "AIza…", "console": "aistudio.google.com/apikey",
+               "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/"},
+    "nvidia": {"label": "NVIDIA", "model": "nvidia/nemotron-3-super-120b-a12b",
+               "key_hint": "nvapi-…", "console": "build.nvidia.com",
+               "base_url": "https://integrate.api.nvidia.com/v1"},
 }
 
 SYSTEM = """You are the user's live copilot in meetings and interviews. Other people are talking to \
@@ -158,10 +165,7 @@ def stream_answer(provider, model, api_key, question, context="", history=(), le
         content = "Said in the meeting just before:\n" + "\n".join(meeting) + f"\n\nQuestion: {question}"
     messages = list(history)[-HISTORY_MESSAGES:] + [{"role": "user", "content": content}]
     system = build_system(context, length)
-    if provider == "claude":
-        yield from _claude(model, api_key, system, messages)
-    else:
-        yield from _openai(model, api_key, system, messages)
+    yield from _sender(provider)(model, api_key, system, messages)
 
 def stream_summary(provider, model, api_key, transcript, context=""):
     """Yield meeting notes (summary, decisions, action items, open questions) piece by piece."""
@@ -173,8 +177,15 @@ def stream_summary(provider, model, api_key, transcript, context=""):
     if context.strip():
         system += f"\n\nBackground the user saved about themselves and the project:\n{context.strip()}"
     messages = [{"role": "user", "content": f"Meeting transcript:\n\n{transcript}"}]
-    send = _claude if provider == "claude" else _openai
-    yield from send(model, api_key, system, messages, max_tokens=2048)
+    yield from _sender(provider)(model, api_key, system, messages, max_tokens=2048)
+
+def _sender(provider):
+    """The streaming call for a provider (looked up at call time, so tests can swap them)."""
+    if provider == "claude":
+        return _claude
+    if provider == "openai":
+        return _openai
+    return lambda *args, **kwargs: _compatible(provider, *args, **kwargs)
 
 def _claude(model, api_key, system, messages, max_tokens=1024):
     import anthropic
@@ -199,24 +210,65 @@ def _claude(model, api_key, system, messages, max_tokens=1024):
         raise AssistantError("Can't reach Claude — check the internet connection.")
 
 def _openai(model, api_key, system, messages, max_tokens=1024):
+    yield from _openai_stream("OpenAI", model, api_key, system, messages, max_completion_tokens=max_tokens)
+
+def _compatible(provider, model, api_key, system, messages, max_tokens=1024):
+    """Gemini and NVIDIA through their OpenAI-compatible endpoints. No token cap: their thinking
+    models count reasoning against it and would cut answers short; the prompts already set the length."""
+    p = PROVIDERS[provider]
+    extra = {}
+    if provider == "gemini" and model.startswith(("gemini-2.5", "gemini-3")):
+        extra["reasoning_effort"] = "low"   # live answers: a little thinking, not seconds of it
+    yield from strip_thinking(_openai_stream(p["label"], model, api_key, system, messages,
+                                             base_url=p["base_url"], **extra))
+
+def strip_thinking(pieces):
+    """Some open models (NVIDIA's catalog) stream their reasoning inline as <think>…</think> before
+    the answer. Drop it, even when a tag is split across streamed pieces."""
+    buf, thinking, after = "", False, False   # after: just left a think block, skip its blank lines
+    for piece in pieces:
+        buf += piece
+        while buf:
+            if after:
+                buf = buf.lstrip()
+                after = not buf
+                if not buf:
+                    break
+            tag = "</think>" if thinking else "<think>"
+            i = buf.find(tag)
+            if i >= 0:
+                if not thinking and buf[:i]:
+                    yield buf[:i]
+                buf, thinking, after = buf[i + len(tag):], not thinking, thinking
+                continue
+            keep = next((n for n in range(len(tag) - 1, 0, -1) if buf.endswith(tag[:n])), 0)
+            if not thinking and len(buf) > keep:
+                yield buf[:len(buf) - keep]
+            buf = buf[len(buf) - keep:] if keep else ""
+            break
+    if buf and not thinking:
+        yield buf
+
+def _openai_stream(label, model, api_key, system, messages, base_url=None, **options):
     import openai
-    client = openai.OpenAI(api_key=api_key, timeout=60.0)
+    client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
     try:
         stream = client.chat.completions.create(
-            model=model, stream=True, max_completion_tokens=max_tokens,
-            messages=[{"role": "system", "content": system}] + messages)
+            model=model, stream=True, messages=[{"role": "system", "content": system}] + messages, **options)
         for chunk in stream:
             if chunk.choices and chunk.choices[0].delta.content:
                 yield chunk.choices[0].delta.content
     except openai.AuthenticationError:
-        raise AssistantError("OpenAI rejected the API key — check it in Settings → Assistant.")
+        raise AssistantError(f"{label} rejected the API key — check it in Settings → Assistant.")
     except openai.PermissionDeniedError:
-        raise AssistantError("This OpenAI API key isn't allowed to use that model.")
+        raise AssistantError(f"This {label} API key isn't allowed to use that model.")
     except openai.NotFoundError:
-        raise AssistantError(f"OpenAI doesn't know the model '{model}'.")
+        raise AssistantError(f"{label} doesn't know the model '{model}'.")
     except openai.RateLimitError:
-        raise AssistantError("OpenAI rate limit or quota reached — check billing or try again shortly.")
+        raise AssistantError(f"{label} rate limit or quota reached — check billing or try again shortly.")
     except openai.APIStatusError as e:
-        raise AssistantError(f"OpenAI error {e.status_code}: {e.message}")
+        if e.status_code == 400 and "api key" in str(e).lower():   # Gemini answers a bad key with 400
+            raise AssistantError(f"{label} rejected the API key — check it in Settings → Assistant.")
+        raise AssistantError(f"{label} error {e.status_code}: {e.message}")
     except openai.APIConnectionError:
-        raise AssistantError("Can't reach OpenAI — check the internet connection.")
+        raise AssistantError(f"Can't reach {label} — check the internet connection.")

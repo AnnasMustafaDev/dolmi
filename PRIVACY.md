@@ -6,12 +6,12 @@ Dolmi only uses the network in the three cases below. You start each one yoursel
 
 ## 1. Assistant and summaries — to the AI provider you chose (optional)
 
-Live subtitles never need this. It only happens if you add an API key and then use the Assistant or Summarize, or press **Test** in Settings. Dolmi then sends a request to the provider you picked, Anthropic (Claude) or OpenAI, using your own key:
+Live subtitles never need this. It only happens if you add an API key and then use the Assistant or Summarize, or press **Test** in Settings. Dolmi then sends a request to the provider you picked — Anthropic (Claude), OpenAI, Google (Gemini) or NVIDIA — using your own key:
 
 - **Assistant:** your question, the last few translated lines of the meeting (English text), your recent questions and answers in that chat, and the notes you wrote in Settings.
 - **Summarize:** the English transcript of the meeting you summarize, and your notes.
 
-That provider's own terms and privacy policy apply to this data: [Anthropic](https://www.anthropic.com/legal/privacy) · [OpenAI](https://openai.com/policies/privacy-policy/).
+That provider's own terms and privacy policy apply to this data: [Anthropic](https://www.anthropic.com/legal/privacy) · [OpenAI](https://openai.com/policies/privacy-policy/) · [Google Gemini API](https://ai.google.dev/gemini-api/terms) · [NVIDIA](https://www.nvidia.com/en-us/about-nvidia/privacy-policy/).
 
 **To opt out:** don't add an API key. Dolmi then sends nothing to any AI provider, and subtitles work exactly the same.
 

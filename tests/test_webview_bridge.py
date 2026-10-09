@@ -88,6 +88,14 @@ check("vocabulary.txt untouched", (tmp_cfg / "vocabulary.txt").read_text(encodin
 check("whitelisted key accepted", api.set_setting("theme", "ink") and config.load_settings()["theme"] == "ink")
 check("non-whitelisted key rejected", api.set_setting("api_keys", {}) is False and api.set_setting("data_folder", "C:\\") is False)
 check("unknown provider ignored", api.set_provider("evil")["provider"] in ("claude", "openai"))
+for prov, hint in (("gemini", "AIza"), ("nvidia", "nvapi-")):
+    st = api.set_provider(prov)
+    check(f"{prov} provider selectable with its key hint", st["provider"] == prov and st["keyHint"].startswith(hint))
+st = api.set_ai_model("nvidia/llama-3.1-nemotron-70b-instruct")
+check("custom assistant model saved per provider", st["model"] == "nvidia/llama-3.1-nemotron-70b-instruct" and bool(config.load_settings()["ai_models"].get("nvidia")))
+st = api.set_ai_model("")
+check("empty model restores the default", st["model"] == st["modelDefault"] and "nvidia" not in config.load_settings()["ai_models"])
+api.set_provider("claude")
 
 # 8. summary guards (no API key in the sandbox)
 r = api.summarize("meeting_2026-10-09_11-14.md")

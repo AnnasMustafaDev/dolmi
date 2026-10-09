@@ -129,3 +129,28 @@ def test_inbox_imports_answers_saved_before_it_existed(tmp_path):
     [chat] = inbox.list_chats(db)
     assert chat["title"] == "Tell me about yourself." and chat["questions"] == 2
     assert [m["answer"] for m in inbox.messages(db, chat["id"])] == ["I'm Alex.", "Retrieval."]
+
+def test_gemini_and_nvidia_use_their_openai_compatible_endpoints():
+    import assistant
+    calls = []
+    def fake(label, model, key, system, messages, base_url=None, **options):
+        calls.append((label, model, base_url, options))
+        yield "<think>plan the answer</think>  It"
+        yield "'s fine."
+    real, assistant._openai_stream = assistant._openai_stream, fake
+    try:
+        g = "".join(assistant.stream_answer("gemini", "gemini-3-flash-preview", "k", "Is it fine?"))
+        n = "".join(assistant.stream_summary("nvidia", "nvidia/nemotron-3-super-120b-a12b", "k", "[10:00] hi"))
+    finally:
+        assistant._openai_stream = real
+    assert g == n == "It's fine."
+    assert calls[0][0] == "Gemini (Google)" and "generativelanguage.googleapis.com" in calls[0][2]
+    assert calls[0][3] == {"reasoning_effort": "low"}
+    assert calls[1][0] == "NVIDIA" and calls[1][2] == "https://integrate.api.nvidia.com/v1" and calls[1][3] == {}
+
+def test_inline_thinking_is_dropped_even_when_tags_are_split():
+    import assistant
+    pieces = ["<thi", "nk>secret", " plan</th", "ink>\n\n", " Answer <", "b>bold</b>"]
+    assert "".join(assistant.strip_thinking(pieces)) == "Answer <b>bold</b>"
+    assert "".join(assistant.strip_thinking(["no thinking here"])) == "no thinking here"
+    assert "".join(assistant.strip_thinking(["a < b", " and c"])) == "a < b and c"

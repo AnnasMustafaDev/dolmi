@@ -9,7 +9,7 @@ if not exist venv\Scripts\python.exe (
   python -m venv venv || (echo Could not create venv & pause & exit /b 1)
 )
 
-if not exist venv\.installed-v4 (
+if not exist venv\.installed-v5 (
   echo [2/3] Installing packages - first run only, this can take 5-15 minutes.
   echo       Progress is shown below. Do NOT click inside this window - that pauses it.
   venv\Scripts\python.exe -m pip install --upgrade pip
@@ -20,9 +20,9 @@ if not exist venv\.installed-v4 (
     echo Copy the error above and send it to Claude.
     pause & exit /b 1
   )
-  echo ok> venv\.installed-v4
+  echo ok> venv\.installed-v5
   powershell -NoProfile -ExecutionPolicy Bypass -File create_shortcuts.ps1
 )
 
 echo [3/3] Starting Dolmi...
-start "" venv\Scripts\pythonw.exe app.py
+start "" venv\Scripts\pythonw.exe src\main.py

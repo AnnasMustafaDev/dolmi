@@ -9,7 +9,7 @@ $targets = @(
 foreach ($dir in $targets) {
     $lnk = $shell.CreateShortcut((Join-Path $dir "Dolmi.lnk"))
     $lnk.TargetPath = Join-Path $here "venv\Scripts\pythonw.exe"
-    $lnk.Arguments = '"' + (Join-Path $here "app.py") + '"'
+    $lnk.Arguments = '"' + (Join-Path $here "src\main.py") + '"'
     $lnk.WorkingDirectory = $here
     $lnk.IconLocation = (Join-Path $here "assets\dolmi-2.ico") + ",0"
     $lnk.Description = "Dolmi - live German to English meeting subtitles"

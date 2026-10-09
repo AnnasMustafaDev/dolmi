@@ -3,7 +3,6 @@ ctranslate2>=4.0
 pyaudiowpatch>=0.2.12
 numpy
 sentencepiece
-customtkinter>=5.2
-pillow
+pywebview>=6.2
 anthropic>=1.0
 openai>=1.0

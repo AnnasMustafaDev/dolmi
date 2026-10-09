@@ -102,12 +102,6 @@ def test_interview_style_questions_are_heard():
     assert all(assistant.is_question(q) for q in asked), [q for q in asked if not assistant.is_question(q)]
     assert not any(assistant.is_question(s) for s in said), [s for s in said if assistant.is_question(s)]
 
-def test_answers_show_as_plain_lines_in_the_bar():
-    import overlay
-    md = ("I use **RAG** daily.\n\n\n- Hybrid retrieval\n* `pgvector`\n"
-          "```python\nfor x in xs:\n    print(x)\n```\n## Next")
-    assert overlay.plain(md) == "I use RAG daily.\n• Hybrid retrieval\n• pgvector\nfor x in xs:\n    print(x)\nNext"
-
 def test_inbox_keeps_each_session_as_a_chat(tmp_path):
     import inbox
     db = inbox.connect(tmp_path / "dolmi.db")

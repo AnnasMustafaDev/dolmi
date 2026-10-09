@@ -1,8 +1,7 @@
 """Dolmi (webview UI) — entry point.
 
-The Bridge port: a pywebview/WebView2 shell hosting ui/web/index.html, bridged to the core
-(live_subs/assistant/inbox/models, which stay at the repo root). The old tkinter app.py is left
-intact and still runnable until this reaches parity.
+A pywebview/WebView2 window hosting ui/web/index.html, bridged to the core modules at the
+repo root (live_subs, assistant, inbox, models, stealth).
 
 Run:  venv\\Scripts\\pythonw.exe src\\main.py   (or python for a console)
 """

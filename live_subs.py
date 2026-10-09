@@ -9,7 +9,7 @@ v2 improvements over v1:
   * Hallucination filter     -> drops Whisper's classic German silence ghosts
   * Real timestamps          -> correct SRT + readable Markdown transcript
 
-The window and subtitle bar live in app.py / overlay.py. Run: start.bat or the Dolmi shortcut.
+The window and subtitle bar live in src/ (webview UI). Run: start.bat or the Dolmi shortcut.
 """
 import queue, re, threading, time
 from datetime import datetime
@@ -335,6 +335,6 @@ def delete_old_files(folder, days, now=None):
         print(f"Deleted {deleted} transcript files older than {days} days")
     return deleted
 
-if __name__ == "__main__":   # the UI lives in app.py (Dolmi)
-    import app
-    app.main()
+if __name__ == "__main__":   # the UI lives in src/main.py
+    import runpy
+    runpy.run_path(str(Path(__file__).with_name("src") / "main.py"), run_name="__main__")

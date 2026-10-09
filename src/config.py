@@ -1,4 +1,4 @@
-"""Settings, .env and data-folder helpers for the webview Dolmi — ported UI-free from app.py.
+"""Settings, .env and data-folder helpers for Dolmi's webview UI.
 
 Reads the same settings.json, .env, vocabulary.txt and glossary.txt as the existing tkinter app, so
 both UIs share one configuration and one data folder.

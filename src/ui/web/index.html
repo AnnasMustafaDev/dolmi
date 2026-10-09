@@ -46,8 +46,20 @@ input,textarea,select{font:inherit;color:inherit}
 .brand{display:flex;align-items:center;gap:11px}
 .logo{width:36px;height:36px;border-radius:10px;display:block}
 .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.mrow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
-.mrow:last-child{border:0}.mrow .nm{font-weight:600}.mrow .sub{font-size:12.5px;color:var(--mute)}
+.mlist{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) 70px 170px 270px;gap:14px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--bg)}
+.mrow.sel{border-color:var(--ac)}
+.mrow .nm{font-weight:600;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.mrow .sub{font-size:12.5px;color:var(--mute);margin-top:2px}
+.mrow .msize{font-family:var(--mono);font-size:12.5px;color:var(--mute);text-align:right}
+.mrow .mfit{font-size:12.5px;color:var(--ac-ink)}.mrow .mfit.draft{color:var(--mute)}.mrow .mfit.live{color:var(--src)}
+.mrow .mact{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+.mrow .mtag.use{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mrow .mact .btn{padding:6px 12px;font-size:12.5px}.mrow .mact .mbar{width:110px;margin:0}
+.mrow .inst{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--ac-ink);margin-right:4px}.mrow .inst svg{width:14px;height:14px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.mfoot{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12.5px;color:var(--mute);overflow-wrap:anywhere}.mfoot .ic svg{width:15px;height:15px}
+.chipt.warn{color:var(--src);border-color:var(--src)}
+@media (max-width:1000px){.mrow{grid-template-columns:minmax(0,1fr) auto}.mrow .msize{text-align:left}}
 .mtag{font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
 .mtag.ok{color:var(--ac-ink);border-color:var(--ac)}.mtag.warn{color:var(--src);border-color:var(--src)}.warnt{color:var(--src)}
 .mbar{height:4px;border-radius:2px;background:var(--line);margin-top:6px;overflow:hidden;max-width:260px}.mbar i{display:block;height:100%;width:0;background:var(--ac);transition:width .4s}
@@ -209,6 +221,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     </nav>
     <div class="sp"></div>
     <span class="chip"><span class="de">Deutsch</span> <i data-lucide="arrow-right" style="width:13px;height:13px"></i> <b>English</b></span>
+    <button class="btn ghost" id="barBtn" title="Open or close the floating subtitle bar"><span class="ic"><i data-lucide="captions" style="width:15px;height:15px"></i></span><span id="barLab">Subtitles</span></button>
     <button class="btn ghost on" id="stealth"><span class="ic"><i data-lucide="shield-check" style="width:15px;height:15px"></i></span>Invisible</button>
   </header>
 
@@ -318,7 +331,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     <div class="grid2">
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
         <div class="set"><div><div class="lab">Listen to</div><div class="ps">The speaker your meeting plays through</div></div><select class="field" id="setDevice"><option value="">Default speaker</option></select></div>
-        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this PC</div></div><select class="field" id="setModel"><option value="auto">Auto · GPU</option><option value="small">small · CPU</option><option value="medium">medium</option><option value="large-v3-turbo">large-v3-turbo</option></select></div>
+        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this PC</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this PC)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
         <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Translated into English</div></div><select class="field" id="setLang"><option value="de">German</option><option value="auto">Auto-detect</option></select></div>
         <div class="set"><div><div class="lab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
       </div>
@@ -330,7 +343,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="shield-check"></i></span>Privacy &amp; stealth</div>
         <div class="set"><div><div class="lab">Invisible mode</div><div class="ps">Hidden from screen shares and the taskbar. Ctrl+Alt+Shift+D to exit.</div></div><button class="sw on" data-sw id="swInv"></button></div>
-        <div class="set"><div><div class="lab">Subtitle bar</div><div class="ps">The floating caption bar only you see</div></div><button class="sw on" data-sw id="swBar"></button></div>
+        <div class="set"><div><div class="lab">Subtitle bar</div><div class="ps">The floating caption bar only you see. Opens with Start when on; also the Subtitles button at the top.</div></div><button class="sw on" data-sw id="swBar"></button></div>
         <div class="set"><div><div class="lab">Save transcripts</div></div><button class="sw on" data-sw id="swSave"></button></div>
         <div class="set"><div><div class="lab">Delete after</div></div><div class="seg" id="setKeep"><button data-d="0">Never</button><button data-d="7">7d</button><button data-d="30" class="a">30d</button><button data-d="90">90d</button></div></div>
       </div>
@@ -339,10 +352,11 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
         <div class="set"><div><div class="lab">Subtitle bar opacity</div><div class="ps">Lower lets the window behind show through</div></div><div style="display:flex;gap:10px;align-items:center"><input type="range" id="setOpacity" min="30" max="100" value="88" style="accent-color:var(--ac);width:150px"><span class="mtag" id="setOpacityVal">88%</span></div></div>
         <div class="set"><div><div class="lab">Subtitle text size</div></div><div style="display:flex;gap:10px;align-items:center"><input type="range" id="setFont" min="14" max="40" value="22" style="accent-color:var(--ac);width:150px"><span class="mtag" id="setFontVal">22 px</span></div></div>
       </div>
-      <div class="card" style="grid-column:1/-1"><div class="cardh"><span class="ic"><i data-lucide="cpu"></i></span>This PC &amp; models</div>
-        <div class="ps" id="pcLine" style="margin-bottom:6px">Checking this PC…</div>
-        <div id="modelList"><div class="ps">Loading models…</div></div>
-        <div class="set"><div><div class="lab">Model folder</div><div class="ps" id="modelDir">—</div></div><button class="btn ghost" id="openModels">Open</button></div>
+      <div class="card" id="modelsCard" style="grid-column:1/-1"><div class="cardh"><span class="ic"><i data-lucide="cpu"></i></span>This PC &amp; speech models</div>
+        <div class="ps">Detected on this PC, never assumed. You choose which models to download; they download once per Windows user and run locally.</div>
+        <div class="chips" id="specs" style="margin-top:12px"><span class="chipt">Checking this PC…</span></div>
+        <div id="modelList" class="mlist"><div class="ps">Loading models…</div></div>
+        <div class="mfoot"><span class="ic"><i data-lucide="folder"></i></span><span id="modelDir">—</span><button class="btn ghost" id="openModels" style="margin-left:auto">Open folder</button></div>
       </div>
     </div>
   </div></section>
@@ -411,7 +425,7 @@ const DEMO=[{de:'Ich habe den MCP gerade auf Production getestet.',en:'I just te
 async function demoLoop(){ if(dbusy)return; dbusy=true; speaking=1; await sleep(1100); speaking=0; const s=DEMO[di++%DEMO.length]; addFinal(new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),s.de,s.en); dbusy=false; }
 $('#go').onclick=()=>{
   const b=bridge();
-  if(b){ if(listening){ b.stop_listening(); setLive(false); if(!lines) showIdle(); } else { resetFeed(); setLive(true,'loading…'); b.start_listening(); } return; }
+  if(b){ if(listening){ b.stop_listening(); setLive(false); if(!lines) showIdle(); } else startLive(false); return; }
   if(listening){ clearInterval(demoTimer); setLive(false); resetFeed(); showIdle(); }
   else { resetFeed(); setLive(true); demoLoop(); demoTimer=setInterval(demoLoop,3600); }
 };
@@ -420,7 +434,7 @@ $('#go').onclick=()=>{
 const STEPS=[
  {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this PC. Only the optional Assistant chat goes to the AI.',b:''},
  {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
- {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this PC: {PC}. The first Start downloads the speech model once — see Settings → This PC &amp; models.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
+ {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this PC: {PC}. Pick your speech model in Settings → This PC &amp; models, or press Start and Dolmi asks before downloading the one that suits this PC.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
 ];
 let step=0;
 function render(){ const s=STEPS[step];
@@ -460,9 +474,9 @@ window.dolmi={
   onSummaryChunk:(p)=>sumChunk(p),
   onSummaryDone:(err)=>sumDone(err),
   onInvisible:(on)=>{ setSw('#swInv',on); $('#stealth').classList.toggle('on',!!on); },
-  onBar:(on)=>setSw('#swBar',on),
+  onBar:(on)=>{ setSw('#swBar',on); setBarBtn(on); },
   onChatsChanged:(id)=>{ currentChat=id; if(aLoaded&&!aArch) loadChats(); },
-  onModelProgress:(k,mb,total)=>{ const r=[...document.querySelectorAll('.mrow')].find(x=>x.dataset.k===k); if(!r) return; const bar=r.querySelector('.mbar'); bar.hidden=false; const pct=Math.min(100,Math.round(mb/total*100)); bar.querySelector('i').style.width=pct+'%'; r.querySelector(':scope > .mtag').textContent=pct+'%'; },
+  onModelProgress:(k,mb,total)=>{ const r=[...document.querySelectorAll('.mrow')].find(x=>x.dataset.k===k); if(!r) return; const bar=r.querySelector('.mbar i'), lab=r.querySelector('.mpct'); if(!bar){ loadModels(); return; } const pct=total?Math.min(99,Math.round(mb/total*100)):0; bar.style.width=pct+'%'; if(lab) lab.textContent=pct+'%'; },
   onModelDone:(k,err)=>{ toast(err||'Model downloaded'); loadModels(); },
 };
 
@@ -556,8 +570,13 @@ function applyGerman(on){ $('#brows').classList.toggle('hidede',!on); $('#bhead'
 function wireSwitch(sel,key){ const e=$(sel); if(e) e.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting(key,e.classList.contains('on')); }); }
 wireSwitch('#swGerman','show_german'); wireSwitch('#swSave','save_transcripts');
 if($('#swGerman')) $('#swGerman').addEventListener('click',()=>applyGerman($('#swGerman').classList.contains('on')));
-if($('#swBar')) $('#swBar').addEventListener('click',()=>{ const b=bridge(); if(!b) return; const on=$('#swBar').classList.contains('on'); b.set_setting('overlay',on); (on?b.show_overlay():b.hide_overlay()).catch(()=>toast('Could not open the subtitle bar.')); });
-if($('#setModel')) $('#setModel').onchange=()=>{ const b=bridge(); if(b){ b.set_setting('model',$('#setModel').value); toast('Speech model set — applies after a restart.'); } };
+/* subtitle bar: the top-bar button and the Settings switch both open/close it and remember the choice */
+function setBarBtn(on){ const e=$('#barBtn'); if(!e) return; e.classList.toggle('on',!!on); $('#barLab').textContent=on?'Subtitles on':'Subtitles'; }
+function setBar(on){ const b=bridge(); setSw('#swBar',on); setBarBtn(on); if(!b) return;
+  b.set_setting('overlay',on); (on?b.show_overlay():b.hide_overlay()).catch(()=>{ setBarBtn(false); toast('Could not open the subtitle bar.'); }); }
+if($('#swBar')) $('#swBar').addEventListener('click',()=>setBar($('#swBar').classList.contains('on')));
+$('#barBtn').onclick=()=>setBar(!$('#barBtn').classList.contains('on'));
+if($('#setModel')) $('#setModel').onchange=()=>{ const b=bridge(); if(b){ b.set_setting('model',$('#setModel').value); toast(listening?'Speech model set — used from the next Start.':'Speech model set.'); loadModels(); } };
 if($('#setLang')) $('#setLang').onchange=()=>{ const b=bridge(); if(b) b.set_setting('language',$('#setLang').value); };
 if($('#setKeep'))[...$('#setKeep').children].forEach(x=>x.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting('keep_days',+x.dataset.d); }));
 if($('#setProvider'))[...$('#setProvider').children].forEach(x=>x.addEventListener('click',async()=>{ const b=bridge(); if(b){ const s=await b.set_provider(x.dataset.p); if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':'sk-…'; if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet'; } }));
@@ -585,17 +604,41 @@ async function applyPc(){ const b=bridge(); if(!b) return; const pc=await b.pc_i
   modelChip=pc.gpu?'GPU · large-v3-turbo':'CPU · small';
   $('#eye').textContent='ON THIS PC · '+(pc.gpu?gpuShort.toUpperCase():'CPU ONLY');
   if($('#modelHint')) $('#modelHint').textContent=pc.gpu?`Auto picks large-v3-turbo on your ${gpuShort}`:'No usable NVIDIA GPU — Auto picks Small, which runs on the CPU';
-  if($('#pcLine')) $('#pcLine').textContent=`Detected: ${pcSummary}. `+(pc.gpu?'Speech runs on the GPU.':'Speech runs on the CPU.')+' Models download once, on first use or from here.';
-  if($('#modelDir')) $('#modelDir').textContent=pc.model_dir+' — shared by every Dolmi install for this Windows user';
+  const nvidia=/nvidia/i.test(pc.gpu_name||''), speech=pc.gpu?['GPU speech ready','on']:nvidia?['NVIDIA found, GPU add-on not installed','warn']:['Speech runs on the CPU',''];
+  if($('#specs')) $('#specs').innerHTML=[[pc.gpu_name||'No dedicated GPU found',''],[pc.ram_gb?pc.ram_gb+' GB RAM':'RAM unknown',''],[pc.cores+' CPU threads',''],speech].map(([t,c])=>`<span class="chipt ${c}">${esc(t)}</span>`).join('');
+  if($('#modelDir')) $('#modelDir').textContent=(pc.model_dir||'Model folder unknown')+' — shared by every Dolmi install for this Windows user';
 }
-function fmtMb(mb){ return mb>=1000?(mb/1000).toFixed(1)+' GB':mb+' MB'; }
+function fmtMb(mb){ return mb>=1000?(mb/1000).toFixed(1)+' GB':Math.round(mb)+' MB'; }
 async function loadModels(){ const b=bridge(), box=$('#modelList'); if(!box) return; if(!b){ box.innerHTML='<div class="ps">Models are managed when running in the app.</div>'; return; }
   const ms=await b.list_models();
-  box.innerHTML=ms.map(m=>`<div class="mrow" data-k="${esc(m.key)}"><div><div class="nm">${esc(m.name)} ${m.needed?'<span class="mtag ok">used</span>':''} ${m.loaded?'<span class="mtag">loaded</span>':''}</div><div class="sub">${m.kind==='speech'?'Speech':'Translation'} · ${fmtMb(m.sizeMb)} · <span class="${m.fitOk?'':'warnt'}">${esc(m.fit)}</span></div><div class="mbar" ${m.downloading?'':'hidden'}><i></i></div></div><span class="mtag ${m.installed?'ok':'warn'}">${m.downloading?'downloading…':m.installed?'installed':'not downloaded'}</span><button class="btn ghost" data-act="${m.installed?'remove':'download'}" ${m.downloading?'disabled':''}>${m.installed?'Remove':'Download'}</button></div>`).join('');
-  box.querySelectorAll('button[data-act]').forEach(btn=>btn.onclick=async()=>{ const k=btn.closest('.mrow').dataset.k;
-    if(btn.dataset.act==='download'){ await b.download_model(k); loadModels(); }
-    else { if(!confirm('Remove this model from disk? It downloads again when needed.')) return; const r=await b.remove_model(k); if(!r.ok) toast(r.message); loadModels(); } });
+  box.innerHTML=ms.map(m=>{
+    const tags=(m.loaded?'<span class="mtag use">In use</span>':'')+(m.auto?'<span class="mtag ok">Auto</span>':m.selected?'<span class="mtag ok">Selected</span>':m.needed?'<span class="mtag ok">Needed</span>':'');
+    let act;
+    if(m.downloading) act='<div class="mbar"><i></i></div><span class="mtag mpct">…</span>';
+    else if(m.installed) act='<span class="inst"><i data-lucide="check"></i>Installed</span>'+(m.kind==='speech'&&!m.selected&&!m.auto?`<button class="btn ghost" data-use="${esc(m.key)}">Use</button>`:'')+`<button class="btn ghost" data-remove="${esc(m.key)}" ${m.loaded&&listening?'disabled title="Stop translating first"':''}>Remove</button>`;
+    else act=(m.kind==='speech'&&!m.selected&&!m.auto?`<button class="btn ghost" data-use="${esc(m.key)}" title="Use it; it downloads on the next Start">Use</button>`:'')+`<button class="btn ghost on" data-download="${esc(m.key)}">Download</button>`;
+    return `<div class="mrow${m.selected||m.auto?' sel':''}" data-k="${esc(m.key)}"><div><div class="nm">${esc(m.name)}${tags}</div><div class="sub">${m.kind==='speech'?'':'Translator · '}${esc(m.note)}</div></div><div class="msize">${fmtMb(m.sizeMb)}</div><div class="mfit ${esc(m.fitLevel)}">${esc(m.fit)}</div><div class="mact">${act}</div></div>`;
+  }).join(''); icons();
+  box.querySelectorAll('[data-download]').forEach(btn=>btn.onclick=async()=>{ await b.download_model(btn.dataset.download); loadModels(); });
+  box.querySelectorAll('[data-use]').forEach(btn=>btn.onclick=async()=>{ await b.use_model(btn.dataset.use); if($('#setModel')) $('#setModel').value=btn.dataset.use; toast(btn.closest('.mrow').querySelector('.nm').firstChild.textContent+' will be used from the next Start'); loadModels(); });
+  box.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=async()=>{
+    if(!btn.dataset.armed){ btn.dataset.armed='1'; btn.textContent='Click again'; setTimeout(()=>{ if(btn.isConnected){ delete btn.dataset.armed; btn.textContent='Remove'; } },4000); return; }
+    const r=await b.remove_model(btn.dataset.remove); toast(r.ok?'Model removed':r.message); loadModels(); });
 }
+
+/* Start with a model that isn't downloaded yet: the user decides, nothing downloads silently */
+function askDownload(missing){
+  let s=document.getElementById('dlModal');
+  if(!s){ s=document.createElement('div'); s.id='dlModal'; s.className='scrim'; document.body.append(s); s.onclick=e=>{ if(e.target.id==='dlModal') s.hidden=true; }; }
+  const total=missing.reduce((a,m)=>a+m.sizeMb,0);
+  s.innerHTML=`<div class="onb" style="max-width:480px"><h3 style="font-size:24px">Download models first?</h3><p style="margin-top:10px;color:var(--mute);font-size:14px;line-height:1.55">Dolmi needs these on this PC before it can caption. They download once (${fmtMb(total)}) and then work offline.</p><div class="mlist">${missing.map(m=>`<div class="set" style="padding:6px 0"><b>${esc(m.name)}</b><span class="mtag">${fmtMb(m.sizeMb)}</span></div>`).join('')}</div><div class="foot" style="justify-content:flex-end;gap:8px"><button class="btn ghost" id="dlPick">Choose another model</button><button class="btn pri" id="dlGo">Download &amp; start</button></div></div>`;
+  s.hidden=false;
+  s.querySelector('#dlPick').onclick=()=>{ s.hidden=true; const n=$('.nav button[data-v="settings"]'); if(n) n.click(); setTimeout(()=>{ const c=$('#modelsCard'); if(c) c.scrollIntoView({behavior:'smooth'}); },60); };
+  s.querySelector('#dlGo').onclick=()=>{ s.hidden=true; startLive(true); };
+}
+async function startLive(download){ const b=bridge(); resetFeed(); setLive(true,download?'downloading models…':'loading…');
+  const r=await b.start_listening(!!download);
+  if(r&&r.missing){ setLive(false); if(!lines) showIdle(); askDownload(r.missing); } }
 $('#openModels').onclick=()=>{ const b=bridge(); if(b) b.open_model_folder(); };
 
 /* ---- subtitle bar opacity + text size ---- */
@@ -616,7 +659,7 @@ async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.sta
   setTheme(s.theme||'paper');
   engineLabel = s.engine==='not loaded' ? 'models load on Start' : s.engine;
   setSw('#swInv',s.invisible); $('#stealth').classList.toggle('on',s.invisible);
-  setSw('#swGerman',s.showGerman); setSw('#swSave',s.saveTranscripts); setSw('#swBar',s.overlay);
+  setSw('#swGerman',s.showGerman); setSw('#swSave',s.saveTranscripts); setSw('#swBar',s.overlay); setBarBtn(s.barVisible);
   applyGerman(s.showGerman);
   setSegVal('#setProvider','data-p',s.provider); setSegVal('#setKeep','data-d',String(s.keepDays));
   if($('#setModel')) $('#setModel').value=s.speechModel;

@@ -137,6 +137,28 @@ ms = api.list_models()
 check("list_models: speech models + the needed translator", any(m["kind"] == "speech" for m in ms)
       and any(m["needed"] and m["kind"] == "translate" for m in ms))
 check("remove_model rejects unknown keys", api.remove_model("nope")["ok"] is False)
+check("list_models marks Auto's pick and the selected model",
+      sum(m["auto"] for m in ms) == 1 and not any(m["selected"] for m in ms))
+
+# 13. the user picks models; Start never downloads without asking
+import models
+check("use_model rejects unknown keys and translators",
+      api.use_model("nope") is False and api.use_model(models.translator_key("de")) is False)
+check("use_model picks a speech model", api.use_model("tiny") and config.load_settings()["model"] == "tiny"
+      and next(m for m in api.list_models() if m["key"] == "tiny")["selected"])
+tiny_missing = not models.is_installed(models.BY_KEY["tiny"])
+missing = api.missing_models()
+check("missing_models lists exactly what isn't downloaded", ("tiny" in {m["key"] for m in missing}) == tiny_missing
+      and all(m["sizeMb"] > 0 for m in missing))
+fake = [{"key": "large-v3", "name": "Whisper Large v3", "sizeMb": 3091}]
+real_missing, engine = api.missing_models, api._engine
+api.missing_models, api._engine = (lambda: fake), None
+r = api.start_listening()
+check("Start asks before downloading (no session started)", r["ok"] is False and r["missing"] == fake
+      and api._session is None)
+api.missing_models, api._engine = real_missing, engine
+api.use_model("auto")
+check("use_model('auto') restores Auto", config.load_settings()["model"] == "auto")
 
 print(f"\n{sum(results)}/{len(results)} passed")
 

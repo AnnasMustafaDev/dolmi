@@ -234,6 +234,7 @@ class Api:
             "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
             "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
+            "barVisible": bool(self._overlay_visible),
             "engine": self._engine_label(), "dataFolder": str(self._data), "version": VERSION,
         }
 
@@ -356,14 +357,20 @@ class Api:
             return []
 
     # ------------------------------------------------------------------ live captions
-    def start_listening(self):
+    def start_listening(self, download=False):
+        """Start captions. Models that aren't downloaded yet are listed instead of fetched
+        silently, so the user decides (download=True) — a speech model can be 3 GB."""
+        if not download and not self._engine:
+            missing = self.missing_models()
+            if missing:
+                return {"ok": False, "missing": missing}
         with self._lock:
             if self._session:
-                return True
+                return {"ok": True}
             token = object()
             self._session = {"token": token, "stop": None, "transcript": None}
         threading.Thread(target=self._begin, args=(token,), daemon=True).start()
-        return True
+        return {"ok": True}
 
     def _alive(self, token):
         s = self._session
@@ -445,6 +452,27 @@ class Api:
         lang = self._settings["language"]
         return [k for k in (speech, models.translator_key("mul" if lang == "auto" else lang)) if k]
 
+    def missing_models(self):
+        """The models the next Start needs that aren't on disk yet."""
+        import models
+        out = []
+        for k in self._needed_models():
+            m = models.BY_KEY.get(k)
+            try:
+                if m and not models.is_installed(m):
+                    out.append({"key": m.key, "name": m.name, "sizeMb": m.size_mb})
+            except OSError as e:
+                print(f"missing_models: could not check {k}: {e}")
+        return out
+
+    def use_model(self, key):
+        """Pick the speech model ('auto' or a catalog key) from the models list."""
+        import models
+        m = models.BY_KEY.get(key)
+        if key != "auto" and not (m and m.job == models.SPEECH):
+            return False
+        return self.set_setting("model", key)
+
     def _watch_downloads(self, keys):
         """While models load, report download progress for any that aren't installed yet."""
         import models
@@ -472,6 +500,7 @@ class Api:
         loaded = set()
         if self._engine:
             loaded = {self._engine.model_name, *self._engine.translators}
+        choice = self._settings["model"]
         out = []
         for m in models.CATALOG:
             if m.job == models.TRANSLATE and m.key not in translators:
@@ -480,11 +509,16 @@ class Api:
                 installed = models.is_installed(m)
             except Exception:
                 installed = False
-            verdict, colour = models.fit(m, pcm) if m.job == models.SPEECH else ("Runs well", "ok")
-            out.append({"key": m.key, "name": m.name, "kind": "speech" if m.job == models.SPEECH else "translate",
+            speech = m.job == models.SPEECH
+            verdict, colour = models.fit(m, pcm) if speech else ("Runs well", "ok")
+            if speech and verdict.startswith("Runs well"):
+                verdict = "Runs well on your GPU" if pc["gpu"] else "Runs well on your CPU"
+            out.append({"key": m.key, "name": m.name, "kind": "speech" if speech else "translate",
                         "sizeMb": m.size_mb, "installed": installed, "downloading": m.key in self._dl,
-                        "fit": verdict, "fitOk": colour == "ok", "note": m.note,
-                        "needed": m.key in needed, "loaded": m.key in loaded})
+                        "fit": verdict, "fitOk": colour == "ok", "fitLevel": colour, "note": m.note,
+                        "needed": m.key in needed, "loaded": m.key in loaded,
+                        "selected": speech and m.key == choice,
+                        "auto": speech and choice == "auto" and m.key in needed})
         return out
 
     def download_model(self, key):

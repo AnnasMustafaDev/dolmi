@@ -66,7 +66,7 @@ Models download from Hugging Face and are cached in `~/.cache/huggingface`. The 
 | Signal processing | NumPy (resampling, energy detection) |
 | UI | HTML/CSS in a native window — pywebview 6 on WKWebView (Cocoa) — bridged to Python (`src/ui/app.py`); "Bridge" design with Paper (light) and Ink (dark) themes; the subtitle bar is a frameless, transparent, always-on-top webview |
 | Fonts & icons | Fraunces, Hanken Grotesk, JetBrains Mono (SIL OFL) and Lucide icons (ISC), bundled in `src/ui/web/vendor` — nothing is loaded from the internet |
-| Packaging | PyInstaller `Dolmi.app` (the source ships unchanged in `Contents/Resources/app`) in a `Dolmi-x.y.z.dmg`, ad-hoc signed (`packaging/build.sh`) |
+| Packaging | PyInstaller `Dolmi.app` (the source ships unchanged in `Contents/Resources/app`) in a `Dolmi-x.y.z.dmg`, signed with a local self-signed certificate so permissions survive rebuilds (`packaging/build.sh`) |
 
 **Deliberately not used:** PyTorch and Hugging Face Transformers. They aren't needed for running these models and would add gigabytes to the app.
 

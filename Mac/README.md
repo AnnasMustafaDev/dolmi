@@ -60,7 +60,7 @@ Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, a
 
 1. Build it (once): `./packaging/build.sh` → `dist/Dolmi-x.y.z.dmg` (needs Xcode Command Line Tools: `xcode-select --install`, and `brew install python@3.12`).
 2. Open the `.dmg` and drag **Dolmi** to **Applications**.
-3. The app is ad-hoc signed, not notarized, so the first time **right-click Dolmi → Open → Open** (or *System Settings → Privacy & Security → Open Anyway*).
+3. The app is signed with a local certificate, not notarized, so the first time **right-click Dolmi → Open → Open** (or *System Settings → Privacy & Security → Open Anyway*).
 4. Press **▶ Start**. macOS asks once to let Dolmi record **System Audio** — allow it (*System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only*). If Start needs a model you don't have, Dolmi shows what it needs and how big it is first. Models download once and then work offline.
 
 To uninstall, move Dolmi.app to the Bin. Your transcripts (`~/Documents/Dolmi`), settings (`~/Library/Application Support/Dolmi`) and models (`~/.cache/huggingface`) are kept.
@@ -101,7 +101,7 @@ App plays audio ─► Core Audio process tap (you still hear it)
 | UI | HTML/CSS in a native window (pywebview + WKWebView); the subtitle bar is a frameless, transparent webview on every Space |
 | Invisible mode | `NSWindow.sharingType = none` + Dock hiding; ⌃⌥⇧D via Carbon `RegisterEventHotKey` (no Accessibility permission) |
 | API keys | Encrypted with a random secret kept in the login Keychain |
-| App | PyInstaller `Dolmi.app` + `.dmg` (`packaging/build.sh`), ad-hoc signed |
+| App | PyInstaller `Dolmi.app` + `.dmg` (`packaging/build.sh`), signed with a local certificate |
 
 See [SPECS.md](SPECS.md) for the full technical details, models, languages and system requirements.
 
@@ -115,7 +115,7 @@ Transcribing other people processes their personal data, so tell meeting partici
 
 ### Signing
 
-Builds are ad-hoc signed, not notarized: Gatekeeper asks once (right-click → Open). Notarization needs an Apple Developer ID.
+`build.sh` signs with **Dolmi Local Signing**, a self-signed certificate it creates once in your login Keychain (`packaging/make-signing-identity.sh`). macOS ties the System Audio Recording permission to the signature, so with a fixed certificate every rebuild keeps the permission (ad-hoc signatures change each build and lose it). It is not an Apple Developer ID and builds aren't notarized: on other Macs Gatekeeper asks once (right-click → Open). Remove the certificate in Keychain Access → login → My Certificates.
 
 ---
 

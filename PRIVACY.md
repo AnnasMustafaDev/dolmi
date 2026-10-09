@@ -1,0 +1,43 @@
+# Dolmi privacy policy
+
+Dolmi has no account, no telemetry and no analytics. **Speech recognition and translation run on your PC. Your audio never leaves it.**
+
+Dolmi only uses the network in the three cases below. You start each one yourself.
+
+## 1. Assistant and summaries — to the AI provider you chose (optional)
+
+Live subtitles never need this. It only happens if you add an API key and then use the Assistant or Summarize, or press **Test** in Settings. Dolmi then sends a request to the provider you picked, Anthropic (Claude) or OpenAI, using your own key:
+
+- **Assistant:** your question, the last few translated lines of the meeting (English text), your recent questions and answers in that chat, and the notes you wrote in Settings.
+- **Summarize:** the English transcript of the meeting you summarize, and your notes.
+
+That provider's own terms and privacy policy apply to this data: [Anthropic](https://www.anthropic.com/legal/privacy) · [OpenAI](https://openai.com/policies/privacy-policy/).
+
+**To opt out:** don't add an API key. Dolmi then sends nothing to any AI provider, and subtitles work exactly the same.
+
+## 2. Speech and translation models — downloaded from Hugging Face
+
+The first time you start a session, or when you press **Download** in Settings, Dolmi downloads its models from [Hugging Face](https://huggingface.co): the Whisper speech model and the Opus-MT translator for your language. This happens once per model. The download sends no personal data, only what any download sends, such as your IP address.
+
+## 3. GPU add-on (optional) — downloaded from PyPI
+
+If you tick **GPU speech recognition** in the installer, it downloads NVIDIA's CUDA libraries from [PyPI](https://pypi.org) once, during setup.
+
+## What stays on your PC
+
+| What | Where |
+|---|---|
+| Settings, API keys (encrypted with Windows DPAPI), vocabulary, glossary | `%APPDATA%\Dolmi` |
+| Transcripts, summaries, saved lines, Assistant chats | `Documents\Dolmi` (change it in Settings) |
+| Log file | `%LOCALAPPDATA%\Dolmi\dolmi.log` |
+| Speech and translation models | `%USERPROFILE%\.cache\huggingface` |
+
+- To stop saving, turn off **Save transcripts** in Settings.
+- To delete old files and chats automatically, use **Delete after**.
+- Uninstalling Dolmi keeps your data. Delete the folders above to remove it.
+
+**Recording other people:** transcribing a meeting processes the other participants' personal data. Tell them you are using live transcription. *(This is not legal advice.)*
+
+## Contact
+
+Questions about privacy: [open an issue](https://github.com/AnnasMustafaDev/dolmi/issues).

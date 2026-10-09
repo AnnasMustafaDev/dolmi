@@ -2,9 +2,9 @@
 
 **Live meeting subtitles, translated to English — private and running entirely on your PC.**
 
-Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live English translation in a floating subtitle bar. German is the default spoken language, with 27+ other languages selectable. Nothing is uploaded — speech recognition and translation run locally.
+Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live English translation in a floating subtitle bar. German is the default spoken language, with 27+ other languages selectable. Speech recognition and translation run locally and your audio never leaves your PC; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
-> Windows only. Dolmi runs on the signed python.org Python rather than as a packaged `.exe`, because Windows Smart App Control blocks unsigned executables and PyTorch DLLs.
+> Windows 10 (2004+) / 11. MIT licence. The installer ships the official, PSF-signed Python runtime as its launcher instead of a packaged `.exe`, because Windows Smart App Control blocks unsigned executables.
 
 ![Dolmi live transcript](assets/screenshots/live.png)
 
@@ -42,7 +42,8 @@ App plays audio ─► WASAPI loopback capture (you still hear it)
 | Audio capture | `pyaudiowpatch` (WASAPI loopback) |
 | Speech recognition | `faster-whisper` — `small` on CPU, `large-v3-turbo` on an NVIDIA GPU |
 | Translation | Helsinki-NLP Opus-MT, run with CTranslate2 (no PyTorch) |
-| UI | CustomTkinter; floating bar in plain Tk |
+| UI | HTML/CSS in a native window (pywebview + WebView2); the subtitle bar is a frameless, transparent webview |
+| Installer | Inno Setup `setup.exe` with the bundled, PSF-signed embeddable Python |
 
 See [SPECS.md](SPECS.md) for the full technical details, models, languages and system requirements.
 
@@ -56,32 +57,55 @@ See [SPECS.md](SPECS.md) for the full technical details, models, languages and s
 
 ---
 
-## Setup
+## Install
 
-1. Install **Python 3.10+** from [python.org](https://www.python.org/downloads/) (tick *Add to PATH*).
-2. Clone this repo (or download it).
-3. Double-click **`start.bat`**. It creates a virtual environment, installs dependencies (~5–10 min the first time), and adds a **Dolmi** shortcut to the Desktop and Start Menu.
-4. Open Dolmi, press **▶ Start**, and join your meeting — no audio settings to change.
+1. Download **`Dolmi-Setup-x.y.z.exe`** from [Releases](https://github.com/AnnasMustafaDev/dolmi/releases).
+2. Run it. No admin rights are needed: it installs for your user, and offers "all users" if you prefer.
+3. Optional during setup: tick **GPU speech recognition** if you have an NVIDIA card (downloads about 1.3 GB). Dolmi then uses Whisper large-v3-turbo on the GPU.
+4. Open Dolmi, press **▶ Start**, and join your meeting. The first start downloads the speech model once; *Settings → This PC & models* shows its progress and what your PC can run.
 
-On first run, `vocabulary.txt` and `glossary.txt` are created from the bundled `*.example.txt` templates; edit them with your own terms. Copy `.env.example` to `.env` for optional local configuration — `.env` is gitignored and never committed.
+The installer isn't code-signed yet, so Windows may show *"Windows protected your PC"*. Click **More info → Run anyway**. On PCs with **Smart App Control** turned on, unsigned installers can be blocked entirely.
+
+Uninstall from *Settings → Apps*. Your transcripts (`Documents\Dolmi`) and settings (`%APPDATA%\Dolmi`) are kept.
+
+### Run from source
+
+1. Install **Python 3.12** from [python.org](https://www.python.org/downloads/) (tick *Add to PATH*), then clone this repo.
+2. Double-click **`start.bat`**. It creates a virtual environment, installs dependencies, adds Desktop and Start Menu shortcuts, and starts Dolmi.
+
+Build the installer yourself with Inno Setup 6.7+ (`winget install -e --id JRSoftware.InnoSetup`): `powershell -ExecutionPolicy Bypass -File installeruild.ps1`.
 
 ---
 
 ## Privacy
 
-Speech recognition and translation run entirely on your PC — nothing is uploaded.
+No account, no telemetry, no analytics. Speech recognition and translation run entirely on your PC. Dolmi uses the network only for the optional Assistant and summaries (your chosen AI provider), to download models once (Hugging Face), and for the optional GPU add-on at setup (PyPI). Details: [PRIVACY.md](PRIVACY.md).
 
-Transcribing other people processes their personal data, so tell meeting participants you are using live transcription. Dolmi shows a one-time reminder and lets you turn off saving or auto-delete old files in Settings → Privacy. *(Not legal advice.)*
+Transcribing other people processes their personal data, so tell meeting participants you are using live transcription. Dolmi shows a one-time reminder and lets you turn off saving or auto-delete old files in Settings. *(Not legal advice.)*
+
+### Code signing policy
+
+Every installer is built by GitHub Actions from a tagged commit in this repository ([release workflow](.github/workflows/release.yml)). The workflow installs, launches, upgrades and uninstalls each build before it publishes the release. Releases are **not code-signed yet**. Signing is planned through [SignPath Foundation](https://signpath.org), and this section will name the certificate once that's approved.
+
+| Role | Who |
+|---|---|
+| Committers and reviewers | [Annas Mustafa](https://github.com/AnnasMustafaDev) |
+| Approvers (approve each signed release) | [Annas Mustafa](https://github.com/AnnasMustafaDev) |
+
+Dolmi never transfers information to other networked systems unless the user asks for it, as described in the [privacy policy](PRIVACY.md).
 
 ---
 
 ## Tests
 
 ```bash
-python -m pytest tests/
+venv\Scripts\python.exe -m pytest tests/test_helpers.py
+venv\Scripts\python.exe tests/test_webview_bridge.py
 ```
 
-The helper tests cover the transcript, vocabulary and question-detection logic. They have no external dependencies and don't touch the network.
+The helper tests cover the transcript, vocabulary and question-detection logic. The bridge tests exercise the webview API headlessly: captions, meetings, vocabulary, chats, archive, settings and models. Neither touches the network.
+
+`installer	est-install.ps1` installs, launches, upgrades and uninstalls a built `setup.exe`. It runs on GitHub's Windows runners for every release (*Actions → Installer test* runs it on demand). On a PC with Smart App Control on, it stops safely, because Windows blocks unsigned installers there.
 
 ---
 

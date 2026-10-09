@@ -64,9 +64,9 @@ Models download from Hugging Face and are cached in `%USERPROFILE%\.cache\huggin
 | Translation | CTranslate2 4.8 + SentencePiece tokenizer |
 | Audio capture | PyAudioWPatch (PortAudio with WASAPI loopback) |
 | Signal processing | NumPy (resampling, energy detection) |
-| UI | CustomTkinter 6 (on Tkinter) + Pillow for images; "Paper Light" theme (deep-teal accent, all text ≥ 4.5:1 contrast); subtitle bar stays dark |
-| Font | Geist (SIL Open Font License, bundled in `assets/fonts`, loaded for Dolmi only, nothing installed); falls back to Segoe UI |
-| Packaging | PowerShell installer + Python venv; shortcuts via Windows Script Host |
+| UI | HTML/CSS in a native window — pywebview 6 on Microsoft WebView2 — bridged to Python (`src/ui/app.py`); "Bridge" design with Paper (light) and Ink (dark) themes; the subtitle bar is a frameless, transparent, always-on-top webview |
+| Fonts & icons | Fraunces, Hanken Grotesk, JetBrains Mono (SIL OFL) and Lucide icons (ISC), bundled in `src/ui/web/vendor` — nothing is loaded from the internet |
+| Packaging | Inno Setup `Dolmi-Setup-x.y.z.exe` with the embeddable CPython 3.12 (PSF-signed `pythonw.exe` as launcher); built and tested by GitHub Actions (`installer/`) |
 
 **Deliberately not used:** PyTorch and Hugging Face Transformers. Windows Smart App Control blocks PyTorch's DLLs, and they aren't needed for running these models. For the same reason Dolmi isn't a packaged `.exe`: unsigned executables are blocked, so it runs on the signed python.org Python.
 
@@ -97,16 +97,19 @@ Models download from Hugging Face and are cached in `%USERPROFILE%\.cache\huggin
 
 | File | Purpose |
 |---|---|
-| `app.py` | Main window |
-| `overlay.py` | Subtitle bar |
-| `theme.py` | Colours (app + subtitle bar) and font loading |
+| `src/main.py` | Entry point: the native window, logging, invisible mode at launch, recovery hotkey |
+| `src/ui/app.py` | The JS bridge (`window.pywebview.api`): live captions, meetings, assistant, settings, models |
+| `src/ui/overlay.py` | Subtitle bar window |
+| `src/ui/web/` | The UI: `index.html` (main window), `overlay.html` (subtitle bar), bundled fonts/icons |
+| `src/config.py` | Settings and where files live (`%APPDATA%\Dolmi`, `Documents\Dolmi`) |
 | `inbox.py` | Local SQLite store (`dolmi.db`) |
 | `stealth.py` | Windows window helper (`SetWindowDisplayAffinity`) |
 | `models.py` | Model catalog, PC check, download / uninstall |
 | `assistant.py` | Optional cloud helper (Claude / OpenAI), DPAPI-encrypted keys |
 | `live_subs.py` | Engine: capture, recognition, translation, transcripts |
-| `vocabulary.txt` | Translation rules |
-| `glossary.txt` | Spelling hints for speech recognition |
+| `vocabulary.txt` | Translation rules (in `%APPDATA%\Dolmi`) |
+| `glossary.txt` | Spelling hints for speech recognition (in `%APPDATA%\Dolmi`) |
+| `installer/` | `build.ps1`, `dolmi.iss` (Inno Setup), `test-install.ps1` |
 | `transcripts\` | Meeting transcripts and saved items (kept on uninstall) |
 
 ## Known limits

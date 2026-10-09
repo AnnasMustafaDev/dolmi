@@ -26,7 +26,7 @@ Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack,
 - **German ↔ English** — German speech gets English subtitles (the default), English speech gets German subtitles.
 - **You choose the models** — *Settings → This PC & speech models* detects your GPU, RAM and CPU, says how well each Whisper model runs on *this* PC, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
 - **Meetings** — every session saved as Markdown + SRT in both languages. Copy, archive, delete, or summarize any meeting.
-- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini or NVIDIA key; optional.
+- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini, NVIDIA or Cloudflare Workers AI key; optional.
 - **Vocabulary & glossary** — teach Dolmi your names, products and terms so they're spelled and translated correctly, applied without a restart.
 - **Privacy controls** — turn off saving, or auto-delete files after 7, 30 or 90 days. No account, no telemetry.
 - **Proper Windows app** — a signed-runtime installer with Start-menu shortcut, clean upgrades and uninstall, light (Paper) and dark (Ink) themes, and a UI that works fully offline.

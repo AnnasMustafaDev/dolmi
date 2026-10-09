@@ -1,7 +1,7 @@
 """Dolmi Assistant mode: answers spoken English technical questions with a fast cloud model.
 
-Providers: Claude (Anthropic), OpenAI, Gemini (Google) or NVIDIA. Gemini and NVIDIA are reached
-through their OpenAI-compatible endpoints, so the openai package talks to all three. API keys are encrypted with a secret kept in the macOS
+Providers: Claude (Anthropic), OpenAI, Gemini (Google), NVIDIA or Cloudflare Workers AI. The last
+three are reached through their OpenAI-compatible endpoints, so the openai package talks to all four. API keys are encrypted with a secret kept in the macOS
 login Keychain, so only the signed-in Mac user can read them; settings.json never holds a key in
 plain text.
 """
@@ -18,6 +18,10 @@ PROVIDERS = {
     "nvidia": {"label": "NVIDIA", "model": "nvidia/nemotron-3-super-120b-a12b",
                "key_hint": "nvapi-…", "console": "build.nvidia.com",
                "base_url": "https://integrate.api.nvidia.com/v1"},
+    # Cloudflare needs the account ID too: the app passes "<account id>:<API token>" as the key
+    "cloudflare": {"label": "Cloudflare Workers AI", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+                   "key_hint": "API token", "console": "dash.cloudflare.com → AI → Workers AI → Use REST API",
+                   "base_url": "https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1"},
 }
 
 SYSTEM = """You are the user's live copilot in meetings and interviews. Other people are talking to \
@@ -206,6 +210,10 @@ KNOWN_MODELS = {
     "openai": ["gpt-5.4-mini"],
     "gemini": ["gemini-3.8-flash", "gemini-3-flash-preview"],
     "nvidia": ["nvidia/nemotron-3-super-120b-a12b"],
+    "cloudflare": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/openai/gpt-oss-120b", "@cf/openai/gpt-oss-20b",
+                   "@cf/google/gemma-4-26b-a4b-it", "@cf/zai-org/glm-5.3-flash", "@cf/deepseek-ai/deepseek-v4-flash-0731",
+                   "@cf/moonshotai/kimi-k2.6", "@cf/qwen/qwen3.8-27b", "@cf/mistralai/mistral-small-3.1-24b-instruct",
+                   "@cf/meta/llama-4-scout-17b-16e-instruct", "@cf/nvidia/nemotron-3-120b-a12b"],
 }
 # Not chat models: embeddings, speech, images, video, safety classifiers, rerankers, ...
 _NOT_CHAT = re.compile(r"embed|tts|whisper|transcribe|audio|realtime|speech|dall-e|image|imagen|veo|sora|lyria|"
@@ -217,7 +225,19 @@ def list_models(provider, api_key=""):
     the others need the key. Raises AssistantError when the list can't be fetched."""
     p = PROVIDERS[provider]
     try:
-        if provider == "claude":
+        if provider == "cloudflare":
+            import json, urllib.error, urllib.request
+            account, token = _cloudflare(api_key)
+            req = urllib.request.Request(
+                f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/models/search"
+                "?task=Text%20Generation&per_page=500", headers={"Authorization": f"Bearer {token}"})
+            try:
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    data = json.load(r)
+            except urllib.error.HTTPError as e:
+                raise AssistantError(f"Cloudflare said {e.code}: check the account ID and API token.")
+            ids = [m["name"] for m in data["result"] if "lora" not in m["name"]]
+        elif provider == "claude":
             import anthropic
             ids = [m.id for m in anthropic.Anthropic(api_key=api_key, timeout=15.0).models.list(limit=1000)]
         else:
@@ -266,11 +286,21 @@ def _compatible(provider, model, api_key, system, messages, max_tokens=1024):
     """Gemini and NVIDIA through their OpenAI-compatible endpoints. No token cap: their thinking
     models count reasoning against it and would cut answers short; the prompts already set the length."""
     p = PROVIDERS[provider]
-    extra = {}
+    base_url, extra = p["base_url"], {}
+    if provider == "cloudflare":
+        account, api_key = _cloudflare(api_key)
+        base_url = base_url.format(account=account)
     if provider == "gemini" and model.startswith(("gemini-2.5", "gemini-3")):
         extra["reasoning_effort"] = "low"   # live answers: a little thinking, not seconds of it
     yield from strip_thinking(_openai_stream(p["label"], model, api_key, system, messages,
-                                             base_url=p["base_url"], **extra))
+                                             base_url=base_url, **extra))
+
+def _cloudflare(credential):
+    """'<account id>:<API token>' -> (account id, token)."""
+    account, _, token = (credential or "").partition(":")
+    if not account or not token:
+        raise AssistantError("Add your Cloudflare Account ID and API token in Settings → Assistant.")
+    return account, token
 
 def strip_thinking(pieces):
     """Some open models (NVIDIA's catalog) stream their reasoning inline as <think>…</think> before

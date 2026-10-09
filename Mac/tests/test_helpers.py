@@ -161,3 +161,21 @@ def test_only_german_and_english_each_with_its_own_direction():
     de, en = models.BY_KEY[models.translator_key("de")], models.BY_KEY[models.translator_key("en")]
     assert de.repo == "gaudi/opus-mt-de-en-ctranslate2" and en.repo == "gaudi/opus-mt-en-de-ctranslate2"
     assert models.translator_key("fr") is None and models.translator_key("auto") is None
+
+def test_cloudflare_puts_the_account_id_in_the_endpoint():
+    import assistant
+    calls = []
+    def fake(label, model, key, system, messages, base_url=None, **options):
+        calls.append((key, base_url)); yield "ok"
+    real, assistant._openai_stream = assistant._openai_stream, fake
+    try:
+        out = "".join(assistant.stream_answer("cloudflare", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "acc123:tok", "Hi?"))
+        try:
+            "".join(assistant.stream_answer("cloudflare", "m", "tok-without-account", "Hi?"))
+            missing = False
+        except assistant.AssistantError as e:
+            missing = "Account ID" in str(e)
+    finally:
+        assistant._openai_stream = real
+    assert out == "ok" and calls[0] == ("tok", "https://api.cloudflare.com/client/v4/accounts/acc123/ai/v1")
+    assert missing

@@ -105,7 +105,7 @@ Models download from Hugging Face and are cached in `~/.cache/huggingface`. The 
 | `inbox.py` | Local SQLite store (`dolmi.db`) |
 | `stealth.py` | Invisible mode (`NSWindow.sharingType`, Dock hiding) and the ⌃⌥⇧D hotkey (Carbon) |
 | `models.py` | Model catalog, Mac check, download / uninstall |
-| `assistant.py` | Optional cloud helper (Claude / OpenAI / Gemini / NVIDIA), keys encrypted with a Keychain secret |
+| `assistant.py` | Optional cloud helper (Claude / OpenAI / Gemini / NVIDIA / Cloudflare), keys encrypted with a Keychain secret |
 | `live_subs.py` | Engine: capture, recognition, translation, transcripts |
 | `vocabulary.txt` | Translation rules (in `~/Library/Application Support/Dolmi`) |
 | `glossary.txt` | Spelling hints for speech recognition (in `~/Library/Application Support/Dolmi`) |

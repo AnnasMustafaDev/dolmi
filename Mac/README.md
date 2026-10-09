@@ -26,7 +26,7 @@ Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, a
 - **German ↔ English** — German speech gets English subtitles (the default), English speech gets German subtitles.
 - **You choose the models** — *Settings → This Mac & speech models* detects your chip, RAM and CPU cores, says how well each Whisper model runs on *this* Mac, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
 - **Meetings** — every session saved as Markdown + SRT in both languages. Copy, archive, delete, or summarize any meeting.
-- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini or NVIDIA key; optional.
+- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini, NVIDIA or Cloudflare Workers AI key; optional.
 - **Vocabulary & glossary** — teach Dolmi your names, products and terms so they're spelled and translated correctly, applied without a restart.
 - **Privacy controls** — turn off saving, or auto-delete files after 7, 30 or 90 days. No account, no telemetry.
 - **Proper Mac app** — `Dolmi.app` in a drag-to-Applications `.dmg`, floats over full-screen meetings on every Space, light (Paper) and dark (Ink) themes, and a UI that works fully offline.

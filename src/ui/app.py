@@ -226,7 +226,12 @@ class Api:
         return self._settings["ai_models"].get(self._provider()) or assistant.PROVIDERS[self._provider()]["model"]
 
     def _ai_key(self):
-        return assistant.decrypt_key(self._settings["api_keys"].get(self._provider(), ""))
+        """The provider's key; for Cloudflare "<account id>:<token>" (empty until both are saved)."""
+        key = assistant.decrypt_key(self._settings["api_keys"].get(self._provider(), ""))
+        if key and self._provider() == "cloudflare":
+            account = self._settings.get("cf_account", "")
+            return f"{account}:{key}" if account else ""
+        return key
 
     def _engine_label(self):
         e = self._engine
@@ -241,6 +246,7 @@ class Api:
             "model": self._ai_model(), "hasKey": bool(self._ai_key()),
             "modelDefault": assistant.PROVIDERS[self._provider()]["model"],
             "keyHint": assistant.PROVIDERS[self._provider()]["key_hint"],
+            "cfAccount": s.get("cf_account", ""),
             "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
             "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
@@ -362,6 +368,16 @@ class Api:
             models.insert(1, self._ai_model())
         return {"models": models, "live": bool(live and cache_key in self._model_lists),
                 "current": self._ai_model(), "default": assistant.PROVIDERS[provider]["model"]}
+
+    def set_cf_account(self, account):
+        """The Cloudflare account ID (32 hex characters, from the Workers AI "Use REST API" page)."""
+        account = (account or "").strip().lower()
+        if account and not re.fullmatch(r"[0-9a-f]{32}", account):
+            return {"ok": False, "message": "An account ID is 32 letters and digits (0-9, a-f)."}
+        with self._settings_lock:
+            self._settings["cf_account"] = account
+            config.save_settings(self._settings)
+        return {"ok": True, **self.state()}
 
     def set_ai_model(self, model):
         """The Assistant model for the current provider; empty goes back to the provider's default."""

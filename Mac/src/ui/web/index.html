@@ -220,7 +220,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       <button data-v="settings">Settings</button>
     </nav>
     <div class="sp"></div>
-    <span class="chip"><span class="de">Deutsch</span> <i data-lucide="arrow-right" style="width:13px;height:13px"></i> <b>English</b></span>
+    <span class="chip"><span class="de" id="chipFrom">Deutsch</span> <i data-lucide="arrow-right" style="width:13px;height:13px"></i> <b id="chipTo">English</b></span>
     <button class="btn ghost" id="barBtn" title="Open or close the floating subtitle bar"><span class="ic"><i data-lucide="captions" style="width:15px;height:15px"></i></span><span id="barLab">Subtitles</span></button>
     <button class="btn ghost on" id="stealth"><span class="ic"><i data-lucide="shield-check" style="width:15px;height:15px"></i></span>Invisible</button>
   </header>
@@ -241,15 +241,15 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
 
     <div class="bridge">
       <div class="bhead" id="bhead">
-        <div class="h de-h"><i data-lucide="ear" style="width:15px;height:15px"></i>HEARD · DEUTSCH</div>
-        <div class="h en-h"><i data-lucide="captions" style="width:15px;height:15px"></i>ENGLISH<span class="live-dot"></span></div>
+        <div class="h de-h"><i data-lucide="ear" style="width:15px;height:15px"></i>HEARD · <span id="headFrom">DEUTSCH</span></div>
+        <div class="h en-h"><i data-lucide="captions" style="width:15px;height:15px"></i><span id="headTo">ENGLISH</span><span class="live-dot"></span></div>
         <span class="knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 7l6 5-6 5"/></svg></span>
       </div>
       <div class="brows" id="brows">
         <div class="idle" id="idle">
           <div class="ring"><i data-lucide="languages"></i></div>
           <div class="big">Ready when your meeting is</div>
-          <div>Press start — German on the left, English on the right.</div>
+          <div id="idleHint">Press start — German on the left, English on the right.</div>
         </div>
       </div>
     </div>
@@ -332,8 +332,8 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
         <div class="set"><div><div class="lab">Listen to</div><div class="ps">Everything your Mac plays, or a microphone</div></div><select class="field" id="setDevice"><option value="">All Mac audio</option></select></div>
         <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this Mac</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this Mac)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
-        <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Translated into English</div></div><select class="field" id="setLang"><option value="de">German</option><option value="auto">Auto-detect</option></select></div>
-        <div class="set"><div><div class="lab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
+        <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Subtitles appear in the other language</div></div><select class="field" id="setLang"><option value="de">German → English</option><option value="en">English → German</option></select></div>
+        <div class="set"><div><div class="lab" id="srcLab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="sparkles"></i></span>Assistant</div>
         <div class="set"><div><div class="lab">Provider</div></div><div class="seg" id="setProvider"><button data-p="claude" class="a">Claude</button><button data-p="openai">OpenAI</button><button data-p="gemini">Gemini</button><button data-p="nvidia">NVIDIA</button></div></div>
@@ -416,7 +416,7 @@ function setLive(on,label){
   listening=on; $('#bhead').classList.toggle('on',on);
   $('#go').innerHTML=`<span class="ic"><i data-lucide="${on?'square':'play'}"></i></span>`; icons();
   $('#status').innerHTML=(on?'Translating':'Ready')+'<b>'+esc(label||engineLabel)+'</b>';
-  $('#hero').innerHTML=on?'Listening in<br><em>German.</em>':'A clear bridge between<br><em>two languages.</em>';
+  $('#hero').innerHTML=on?`Listening in<br><em>${LANG[curLang].name}.</em>`:'A clear bridge between<br><em>two languages.</em>';
   track.classList.toggle('on',on); cancelAnimationFrame(raf); wave();
 }
 
@@ -433,13 +433,14 @@ $('#go').onclick=()=>{
 
 /* onboarding */
 const STEPS=[
- {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this Mac. Only the optional Assistant chat goes to the AI.',b:''},
- {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
+ {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in real time — German into English, or English into German — with the original underneath — all on this Mac. Only the optional Assistant chat goes to the AI.',b:''},
+ {h:'Pick your<br><em>languages.</em>',p:'Choose what\'s being spoken. Subtitles appear in the other language.',b:'<div class="prov"><button data-lang="de"><b>German</b><span>→ English</span></button><button data-lang="en"><b>English</b><span>→ German</span></button></div>'},
  {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this Mac: {PC}. Pick your speech model in Settings → This Mac &amp; models, or press Start and Dolmi asks before downloading the one that suits this Mac.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
 ];
 let step=0;
 function render(){ const s=STEPS[step];
   $('#onbBody').innerHTML=`<h3 class="pop">${s.h}</h3><p class="pop">${s.p.replace('{PC}',pcSummary)}</p><div class="pop">${s.b.replace('{MODEL}',modelChip)}</div>`;
+  $$('#onbBody [data-lang]').forEach(x=>{ x.classList.toggle('on',x.dataset.lang===curLang); x.onclick=()=>pickLang(x.dataset.lang); });
   [...$('#steps').children].forEach((d,i)=>d.classList.toggle('on',i<=step));
   $('#onbBack').style.visibility=step?'visible':'hidden';
   $('#onbNext').textContent=step===STEPS.length-1?'Start using Dolmi':'Continue';
@@ -578,7 +579,18 @@ function setBar(on){ const b=bridge(); setSw('#swBar',on); setBarBtn(on); if(!b)
 if($('#swBar')) $('#swBar').addEventListener('click',()=>setBar($('#swBar').classList.contains('on')));
 $('#barBtn').onclick=()=>setBar(!$('#barBtn').classList.contains('on'));
 if($('#setModel')) $('#setModel').onchange=()=>{ const b=bridge(); if(b){ b.set_setting('model',$('#setModel').value); toast(listening?'Speech model set — used from the next Start.':'Speech model set.'); loadModels(); } };
-if($('#setLang')) $('#setLang').onchange=()=>{ const b=bridge(); if(b) b.set_setting('language',$('#setLang').value); };
+/* ---- direction: German speech -> English subtitles, or English speech -> German subtitles ---- */
+const LANG={de:{name:'German',self:'Deutsch',to:'en'},en:{name:'English',self:'English',to:'de'}};
+let curLang='de';
+function applyLang(l){ curLang=LANG[l]?l:'de'; const f=LANG[curLang], t=LANG[f.to];
+  $('#chipFrom').textContent=f.self; $('#chipTo').textContent=t.self;
+  $('#headFrom').textContent=f.self.toUpperCase(); $('#headTo').textContent=t.self.toUpperCase();
+  $('#idleHint').textContent=`Press start — ${f.name} on the left, ${t.name} on the right.`;
+  if($('#srcLab')) $('#srcLab').textContent=`Show ${f.name} source`;
+  if($('#setLang')) $('#setLang').value=curLang;
+  $$('#onbBody [data-lang]').forEach(x=>x.classList.toggle('on',x.dataset.lang===curLang)); }
+function pickLang(l){ const b=bridge(); if(b) b.set_setting('language',l); applyLang(l); }
+if($('#setLang')) $('#setLang').onchange=()=>pickLang($('#setLang').value);
 if($('#setKeep'))[...$('#setKeep').children].forEach(x=>x.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting('keep_days',+x.dataset.d); }));
 function applyProvider(s){ if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':(s.keyHint||'sk-…'); if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet';
   const m=$('#setAiModel'); if(m){ m.placeholder=s.modelDefault||''; m.value=s.model===s.modelDefault?'':(s.model||''); } }
@@ -666,7 +678,7 @@ async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.sta
   applyGerman(s.showGerman);
   setSegVal('#setProvider','data-p',s.provider); setSegVal('#setKeep','data-d',String(s.keepDays));
   if($('#setModel')) $('#setModel').value=s.speechModel;
-  if($('#setLang')) $('#setLang').value=s.language;
+  applyLang(s.language);
   applyProvider(s);
   $('#status').innerHTML='Ready<b>'+esc(engineLabel)+'</b>';
   setRange('#setFont',s.font); setRange('#setOpacity',Math.round(s.opacity*100));

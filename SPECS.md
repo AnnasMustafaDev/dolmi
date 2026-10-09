@@ -8,7 +8,7 @@
 |---|---|
 | Version | 1.0 |
 | Platform | Windows 10 / 11, 64-bit |
-| Languages | 27 spoken languages + Auto-detect → English subtitles (default: German). Set in Settings → Spoken language |
+| Languages | German speech → English subtitles (default), or English speech → German subtitles. Set in Settings → Spoken language |
 | Delay | Draft text ~1 s after speech; final sentence ~1–2.5 s after the speaker pauses (CPU, `small` model) |
 | Translation speed | ~0.06 s per sentence on CPU |
 | Privacy | 100% offline after the first model download |
@@ -49,8 +49,8 @@ Teams audio ─► WASAPI loopback capture (16 kHz mono)
 | Whisper `small` (CTranslate2, int8) | German speech → German text, default on CPU | OpenAI Whisper via `Systran/faster-whisper-small` | 464 MB | MIT |
 | Whisper `medium` (optional) | More accurate, slower | `Systran/faster-whisper-medium` | ~1.5 GB | MIT |
 | Whisper `large-v3-turbo` (optional) | Best accuracy, needs NVIDIA GPU | `mobiuslabsgmbh/faster-whisper-large-v3-turbo` | 1.6 GB | MIT |
-| Opus-MT X→en (CTranslate2), one per language | Text → English for 23 languages (de, fr, es, it, nl, pl, ru, uk, tr, ar, ur, hi, zh, ja, ko, sv, da, fi, cs, hu, bg, id, vi); downloaded on demand | Helsinki-NLP Opus-MT, via `gaudi/opus-mt-<lang>-en-ctranslate2` | 148–177 MB each | CC-BY 4.0 |
-| Opus-MT mul→en | Fallback for Portuguese, Persian, Romanian, Greek and Auto-detect; lower quality | `gaudi/opus-mt-mul-en-ctranslate2` | 159 MB | CC-BY 4.0 |
+| Opus-MT de→en (CTranslate2) | German text → English | `gaudi/opus-mt-de-en-ctranslate2` | 152 MB | CC-BY 4.0 |
+| Opus-MT en→de (CTranslate2) | English text → German; downloaded when English is picked | `gaudi/opus-mt-en-de-ctranslate2` | 152 MB | CC-BY 4.0 |
 | Silero VAD | Skips silence before recognition | Bundled with faster-whisper | < 2 MB | MIT |
 
 Models download from Hugging Face and are cached in `%USERPROFILE%\.cache\huggingface`. The **Models** tab in Dolmi lists every model with its size, accuracy and speed ratings and how well it runs on this PC (based on RAM, CPU threads and a usable NVIDIA GPU), marks the recommended one, and lets the user download, switch (**Use**) and uninstall models. The model in use and the translator can't be uninstalled.
@@ -114,8 +114,7 @@ Models download from Hugging Face and are cached in `%USERPROFILE%\.cache\huggin
 
 ## Known limits
 
-- Subtitles are always English. Languages without their own translator (Portuguese, Persian, Romanian, Greek) use the multilingual model, which makes more mistakes.
-- Auto-detect only translates languages whose translator (or the multilingual one) is installed; others show the original text marked like `[ja]`.
+- Only German and English: other spoken languages are not translated.
 - Doesn't tell speakers apart.
 - Accuracy drops with overlapping speakers, bad audio or fast speech; the CPU `small` model is the main limit.
 - A bare "Chris" can't be resolved to Chris1 / Chris2; only full names are labelled.

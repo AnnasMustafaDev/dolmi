@@ -147,12 +147,10 @@ class Engine:
         print(f"📥 Whisper '{model}' on {device} ({ctype})")
         self.model_name, self.device = model, device
         self.asr = WhisperModel(model, device=device, compute_type=ctype)
-        self.language = language   # spoken language code, or "auto"
+        self.language = language   # spoken language: "de" or "en"
         self.translators = {}      # model key -> (translator, source spm, target spm)
-        # Load (and on first use download) the translator up front; auto-detect falls back to "mul"
-        first = models.translator_key("mul" if language == "auto" else language)
-        if first:
-            self._translator(first, download=True)
+        # Load (and on first use download) the translator up front
+        self._translator(models.translator_key(language), download=True)
         self.context = ""   # previous sentence -> better names/terms
         self.reload_terms()
 
@@ -187,7 +185,7 @@ class Engine:
     def transcribe(self, audio):
         """Speech -> (text in the spoken language, language code)."""
         segs, info = self.asr.transcribe(
-            audio, language=None if self.language == "auto" else self.language,
+            audio, language=self.language,
             beam_size=5, vad_filter=True, condition_on_previous_text=False,
             # spelling hints go in as hotwords; only the previous sentence is the prompt
             hotwords=self.glossary or None, initial_prompt=self.context[-200:] or None)
@@ -195,12 +193,10 @@ class Engine:
         return ("" if echoes_terms(text, self.terms) else text), info.language
 
     def translate(self, text, lang):
-        key = models.translator_key(lang)
-        if key is None:   # already English
-            return self.vocab.finish(text)
-        t = self._translator(key) or self._translator("opus-mul")
+        key = models.translator_key(lang if lang in models.LANGUAGES else self.language)
+        t = self._translator(key)
         if t is None:
-            return f"[{lang}] {text}"   # no translator installed for this language yet
+            return f"[{lang}] {text}"   # the translator for this direction isn't installed yet
         mt, sp_src, sp_tgt = t
         text, slots = self.vocab.protect(text)
         toks = sp_src.encode(text, out_type=str)[:400] + ["</s>"]

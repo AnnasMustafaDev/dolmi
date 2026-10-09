@@ -96,6 +96,14 @@ check("custom assistant model saved per provider", st["model"] == "nvidia/llama-
 st = api.set_ai_model("")
 check("empty model restores the default", st["model"] == st["modelDefault"] and "nvidia" not in config.load_settings()["ai_models"])
 api.set_provider("claude")
+check("only German and English can be spoken", api.set_setting("language", "fr") is False and api.set_setting("language", "auto") is False)
+api.set_setting("language", "en")
+check("English speech needs the English -> German translator", "opus-en" in api._needed_models() and "opus-de" not in api._needed_models())
+api._history = [("10:00:00", "We ship on Friday.", "Wir liefern am Freitag.")]
+check("the Assistant reads the English side (what was heard)", api._english("We ship on Friday.", "Wir liefern am Freitag.") == "We ship on Friday.")
+api.set_setting("language", "de")
+check("German speech: the Assistant reads the English subtitle", api._english("Wir liefern am Freitag.", "We ship on Friday.") == "We ship on Friday.")
+api._history = []
 
 # 8. summary guards (no API key in the sandbox)
 r = api.summarize("meeting_2026-10-09_11-14.md")

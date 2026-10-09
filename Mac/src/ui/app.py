@@ -30,6 +30,7 @@ VERSION = config.version()
 ICON = config.ROOT / "assets" / "dolmi.png"   # the Dock icon when running from source
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
+LANGUAGES = ("de", "en")   # German speech -> English subtitles, English speech -> German subtitles
 SETTABLE = {"language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
             "overlay", "theme", "ai_length", "ai_context", "opacity", "font"}
 
@@ -53,6 +54,8 @@ class Api:
         config.prepare()
         config.load_env()
         self._settings = config.load_settings()
+        if self._settings["language"] not in LANGUAGES:   # other languages and Auto-detect are gone
+            self._settings["language"] = "de"
         self._settings_lock = threading.Lock()
         self._data = config.data_folder(self._settings)
         self._data.mkdir(parents=True, exist_ok=True)
@@ -159,6 +162,10 @@ class Api:
             print(f"inbox retention failed: {e}")
 
     # ------------------------------------------------------------------ state / settings
+    def _english(self, heard, subtitle):
+        """The English side of a caption: the subtitle for German speech, what was heard for English."""
+        return heard if self._settings["language"] == "en" else subtitle
+
     def _provider(self):
         p = self._settings["ai_provider"]
         return p if p in assistant.PROVIDERS else next(iter(assistant.PROVIDERS))
@@ -191,6 +198,8 @@ class Api:
 
     def set_setting(self, key, value):
         if key not in SETTABLE:
+            return False
+        if key == "language" and value not in LANGUAGES:
             return False
         with self._settings_lock:
             self._settings[key] = value
@@ -396,7 +405,7 @@ class Api:
         import models
         speech = self._settings["model"] if self._settings["model"] != "auto" else self._auto_speech()
         lang = self._settings["language"]
-        return [k for k in (speech, models.translator_key("mul" if lang == "auto" else lang)) if k]
+        return [k for k in (speech, models.translator_key(lang)) if k]
 
     def missing_models(self):
         """The models the next Start needs that aren't on disk yet."""
@@ -442,7 +451,7 @@ class Api:
         pcm = {"ram_gb": pc["ram_gb"] or 8, "cores": pc["cores"], "gpu": pc["gpu"]}
         needed = set(self._needed_models())
         lang = self._settings["language"]
-        translators = {models.translator_key("mul" if lang == "auto" else lang), "opus-mul"} - {None}
+        translators = {models.translator_key(lang)} - {None}
         loaded = set()
         if self._engine:
             loaded = {self._engine.model_name, *self._engine.translators}
@@ -603,7 +612,8 @@ class Api:
             return -1
         qid = next(self._ids)
         with self._hist_lock:
-            meeting = [en for _, _, en in self._history[-9:] if en != question][-8:]
+            lines = [self._english(heard, sub) for _, heard, sub in self._history[-9:]]
+            meeting = [line for line in lines if line != question][-8:]
         self._asks[qid] = {"q": question, "meeting": meeting}
         self._ask_q.put(qid)
         return qid
@@ -712,14 +722,14 @@ class Api:
             pairs = self.read_meeting(meeting)
             if not pairs:
                 return {"ok": False, "message": "That meeting has no lines to summarize."}
-            lines = [f"[{p['ts']}] {p['en']}" for p in pairs]
+            lines = [f"[{p['ts']}] {self._english(p['de'], p['en'])}" for p in pairs]
             stamp = str(meeting).removeprefix("meeting_").removesuffix(".md")
         else:
             with self._hist_lock:
                 history = list(self._history)
             if not history:
                 return {"ok": False, "message": "Nothing to summarize yet — run a live session first."}
-            lines = [f"[{t}] {en}" for t, de, en in history]
+            lines = [f"[{t}] {self._english(heard, sub)}" for t, heard, sub in history]
             tr = self._last_transcript
             stamp = tr.md.stem.removeprefix("meeting_") if tr and tr.md else f"{datetime.now():%Y-%m-%d_%H-%M}"
         if not self._ai_key():

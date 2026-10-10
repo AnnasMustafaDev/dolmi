@@ -168,7 +168,7 @@ input,textarea,select{font:inherit;color:inherit}
 .set .lab{font-weight:600}.set .ps{font-size:12.5px;color:var(--mute);margin-top:1px;max-width:340px}
 .field{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 13px;color:var(--ink);outline:none}.field:focus{border-color:var(--ac)}
 textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertical}
-.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
+.seg{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
 .seg button{font-size:13px;font-weight:600;color:var(--mute);padding:6px 14px;border-radius:999px}
 .seg button.a{background:var(--ac);color:var(--on-ac)}
 .sw{width:46px;height:28px;border-radius:999px;background:var(--line-dash);position:relative;flex:none;transition:.2s}
@@ -220,7 +220,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       <button data-v="settings">Settings</button>
     </nav>
     <div class="sp"></div>
-    <span class="chip"><span class="de">Deutsch</span> <i data-lucide="arrow-right" style="width:13px;height:13px"></i> <b>English</b></span>
+    <span class="chip"><span class="de" id="chipFrom">Deutsch</span> <i data-lucide="arrow-right" style="width:13px;height:13px"></i> <b id="chipTo">English</b></span>
     <button class="btn ghost" id="barBtn" title="Open or close the floating subtitle bar"><span class="ic"><i data-lucide="captions" style="width:15px;height:15px"></i></span><span id="barLab">Subtitles</span></button>
     <button class="btn ghost on" id="stealth"><span class="ic"><i data-lucide="shield-check" style="width:15px;height:15px"></i></span>Invisible</button>
   </header>
@@ -241,15 +241,15 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
 
     <div class="bridge">
       <div class="bhead" id="bhead">
-        <div class="h de-h"><i data-lucide="ear" style="width:15px;height:15px"></i>HEARD · DEUTSCH</div>
-        <div class="h en-h"><i data-lucide="captions" style="width:15px;height:15px"></i>ENGLISH<span class="live-dot"></span></div>
+        <div class="h de-h"><i data-lucide="ear" style="width:15px;height:15px"></i>HEARD · <span id="headFrom">DEUTSCH</span></div>
+        <div class="h en-h"><i data-lucide="captions" style="width:15px;height:15px"></i><span id="headTo">ENGLISH</span><span class="live-dot"></span></div>
         <span class="knob"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 7l6 5-6 5"/></svg></span>
       </div>
       <div class="brows" id="brows">
         <div class="idle" id="idle">
           <div class="ring"><i data-lucide="languages"></i></div>
           <div class="big">Ready when your meeting is</div>
-          <div>Press start — German on the left, English on the right.</div>
+          <div id="idleHint">Press start — German on the left, English on the right.</div>
         </div>
       </div>
     </div>
@@ -267,6 +267,7 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
       <div class="acts">
         <button class="btn ghost" id="mArchView" title="Show archived meetings"><span class="ic"><i data-lucide="archive" style="width:15px;height:15px"></i></span>Archived</button>
         <button class="btn ghost" id="mCopy" title="Copy the whole transcript"><span class="ic"><i data-lucide="copy" style="width:15px;height:15px"></i></span>Copy</button>
+        <button class="btn ghost" id="mExport" title="Save captions and translation as a .txt file"><span class="ic"><i data-lucide="download" style="width:15px;height:15px"></i></span>Export</button>
         <button class="btn ghost" id="mArchive"><span class="ic"><i data-lucide="archive-restore" style="width:15px;height:15px"></i></span><span>Archive</span></button>
         <button class="btn ghost" id="mDelete"><span class="ic"><i data-lucide="trash-2" style="width:15px;height:15px"></i></span>Delete</button>
         <button class="btn ghost"><span class="ic"><i data-lucide="file-text" style="width:15px;height:15px"></i></span>Summarize</button>
@@ -331,15 +332,17 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
     <div class="grid2">
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="languages"></i></span>Speech &amp; translation</div>
         <div class="set"><div><div class="lab">Listen to</div><div class="ps">Everything your Mac plays, or a microphone</div></div><select class="field" id="setDevice"><option value="">All Mac audio</option></select></div>
-        <div class="set"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this Mac</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this Mac)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
-        <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Translated into English</div></div><select class="field" id="setLang"><option value="de">German</option><option value="auto">Auto-detect</option></select></div>
-        <div class="set"><div><div class="lab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
+        <div class="set"><div><div class="lab">Captions by</div><div class="ps" id="sourceHint">Whisper on this computer — audio never leaves it</div></div><select class="field" id="setSource"><option value="local">This computer (private)</option><option value="gemini">Gemini — cloud</option><option value="openai">OpenAI — cloud</option><option value="cloudflare">Cloudflare — cloud</option></select></div>
+        <div class="set" id="modelRow"><div><div class="lab">Speech model</div><div class="ps" id="modelHint">Auto picks the best model for this Mac</div></div><select class="field" id="setModel"><option value="auto">Auto (best for this Mac)</option><option value="tiny">Whisper Tiny</option><option value="base">Whisper Base</option><option value="small">Whisper Small</option><option value="medium">Whisper Medium</option><option value="large-v3-turbo">Whisper Large v3 Turbo</option><option value="large-v3">Whisper Large v3</option></select></div>
+        <div class="set"><div><div class="lab">Spoken language</div><div class="ps">Subtitles appear in the other language</div></div><select class="field" id="setLang"><option value="de">German → English</option><option value="en">English → German</option></select></div>
+        <div class="set"><div><div class="lab" id="srcLab">Show German source</div><div class="ps">Keep the left column</div></div><button class="sw on" data-sw id="swGerman"></button></div>
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="sparkles"></i></span>Assistant</div>
-        <div class="set"><div><div class="lab">Provider</div></div><div class="seg" id="setProvider"><button data-p="claude" class="a">Claude</button><button data-p="openai">OpenAI</button><button data-p="gemini">Gemini</button><button data-p="nvidia">NVIDIA</button></div></div>
+        <div class="set"><div><div class="lab">Provider</div></div><div class="seg" id="setProvider"><button data-p="claude" class="a">Claude</button><button data-p="openai">OpenAI</button><button data-p="gemini">Gemini</button><button data-p="nvidia">NVIDIA</button><button data-p="cloudflare">Cloudflare</button></div></div>
+        <div class="set" id="cfRow" hidden><div><div class="lab">Account ID</div><div class="ps">Workers AI → Use REST API → Account ID</div></div><input class="field" id="setCfAccount" placeholder="32-character account ID" spellcheck="false" style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></div>
         <div class="set"><div><div class="lab">API key</div><div class="ps">Encrypted with your Mac Keychain</div></div>
           <div style="display:flex;gap:8px"><input class="field" id="setKey" type="password" placeholder="sk-…" style="width:140px;font-family:var(--mono)"><button class="btn ghost" id="setTest">Test</button></div></div>
-        <div class="set"><div><div class="lab">Model</div><div class="ps">Leave empty for the default</div></div><input class="field" id="setAiModel" spellcheck="false" style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></div>
+        <div class="set"><div><div class="lab">Model</div><div class="ps" id="aiModelHint">Every model this provider offers</div></div><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><select class="field" id="setAiModel" style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></select><input class="field" id="setAiModelOther" placeholder="model ID, then Enter" spellcheck="false" hidden style="width:270px;max-width:100%;font-family:var(--mono);font-size:12px"></div></div>
         <div class="set"><div><div class="lab">Status</div></div><span class="ok" id="keyStatus" style="color:var(--mute)">—</span></div>
       </div>
       <div class="card"><div class="cardh"><span class="ic"><i data-lucide="shield-check"></i></span>Privacy &amp; stealth</div>
@@ -416,7 +419,7 @@ function setLive(on,label){
   listening=on; $('#bhead').classList.toggle('on',on);
   $('#go').innerHTML=`<span class="ic"><i data-lucide="${on?'square':'play'}"></i></span>`; icons();
   $('#status').innerHTML=(on?'Translating':'Ready')+'<b>'+esc(label||engineLabel)+'</b>';
-  $('#hero').innerHTML=on?'Listening in<br><em>German.</em>':'A clear bridge between<br><em>two languages.</em>';
+  $('#hero').innerHTML=on?`Listening in<br><em>${LANG[curLang].name}.</em>`:'A clear bridge between<br><em>two languages.</em>';
   track.classList.toggle('on',on); cancelAnimationFrame(raf); wave();
 }
 
@@ -433,13 +436,14 @@ $('#go').onclick=()=>{
 
 /* onboarding */
 const STEPS=[
- {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in English in real time, with the German underneath — all on this Mac. Only the optional Assistant chat goes to the AI.',b:''},
- {h:'Pick your<br><em>languages.</em>',p:'Dolmi translates into English. Choose what\'s being spoken.',b:'<div class="prov"><button class="on"><b>German</b><span>→ English</span></button><button><b>Auto</b><span>detect</span></button><button><b>Spanish</b><span>→ English</span></button></div>'},
+ {h:'Welcome to<br>Dolmi.',p:'Dolmi captions your meeting in real time — German into English, or English into German — with the original underneath — all on this Mac. Only the optional Assistant chat goes to the AI.',b:''},
+ {h:'Pick your<br><em>languages.</em>',p:'Choose what\'s being spoken. Subtitles appear in the other language.',b:'<div class="prov"><button data-lang="de"><b>German</b><span>→ English</span></button><button data-lang="en"><b>English</b><span>→ German</span></button></div>'},
  {h:'You\'re<br><em>ready.</em>',p:'Dolmi checked this Mac: {PC}. Pick your speech model in Settings → This Mac &amp; models, or press Start and Dolmi asks before downloading the one that suits this Mac.',b:'<div class="chips"><span class="chipt on">{MODEL}</span><span class="chipt on">Invisible on</span><span class="chipt on">Subtitle bar on</span></div>'}
 ];
 let step=0;
 function render(){ const s=STEPS[step];
   $('#onbBody').innerHTML=`<h3 class="pop">${s.h}</h3><p class="pop">${s.p.replace('{PC}',pcSummary)}</p><div class="pop">${s.b.replace('{MODEL}',modelChip)}</div>`;
+  $$('#onbBody [data-lang]').forEach(x=>{ x.classList.toggle('on',x.dataset.lang===curLang); x.onclick=()=>pickLang(x.dataset.lang); });
   [...$('#steps').children].forEach((d,i)=>d.classList.toggle('on',i<=step));
   $('#onbBack').style.visibility=step?'visible':'hidden';
   $('#onbNext').textContent=step===STEPS.length-1?'Start using Dolmi':'Continue';
@@ -578,13 +582,40 @@ function setBar(on){ const b=bridge(); setSw('#swBar',on); setBarBtn(on); if(!b)
 if($('#swBar')) $('#swBar').addEventListener('click',()=>setBar($('#swBar').classList.contains('on')));
 $('#barBtn').onclick=()=>setBar(!$('#barBtn').classList.contains('on'));
 if($('#setModel')) $('#setModel').onchange=()=>{ const b=bridge(); if(b){ b.set_setting('model',$('#setModel').value); toast(listening?'Speech model set — used from the next Start.':'Speech model set.'); loadModels(); } };
-if($('#setLang')) $('#setLang').onchange=()=>{ const b=bridge(); if(b) b.set_setting('language',$('#setLang').value); };
+/* ---- captions by: this computer (Whisper) or a cloud speech API ---- */
+const SOURCES={gemini:'Gemini',openai:'OpenAI',cloudflare:'Cloudflare Workers AI'};
+function applySource(v){ if(!$('#setSource')) return; $('#setSource').value=v; const cloud=v!=='local';
+  $('#modelRow').hidden=cloud;
+  $('#sourceHint').textContent=cloud?`Each sentence's audio goes to ${SOURCES[v]} with your API key (Settings → Assistant)`:'Whisper on this computer — audio never leaves it'; }
+if($('#setSource')) $('#setSource').onchange=async()=>{ const b=bridge(), v=$('#setSource').value; if(b) await b.set_setting('speech_source',v); applySource(v);
+  toast(v==='local'?'Captions: this computer':`Captions: ${SOURCES[v]} (cloud) — next Start`); };
+/* ---- direction: German speech -> English subtitles, or English speech -> German subtitles ---- */
+const LANG={de:{name:'German',self:'Deutsch',to:'en'},en:{name:'English',self:'English',to:'de'}};
+let curLang='de';
+function applyLang(l){ curLang=LANG[l]?l:'de'; const f=LANG[curLang], t=LANG[f.to];
+  $('#chipFrom').textContent=f.self; $('#chipTo').textContent=t.self;
+  $('#headFrom').textContent=f.self.toUpperCase(); $('#headTo').textContent=t.self.toUpperCase();
+  $('#idleHint').textContent=`Press start — ${f.name} on the left, ${t.name} on the right.`;
+  if($('#srcLab')) $('#srcLab').textContent=`Show ${f.name} source`;
+  if($('#setLang')) $('#setLang').value=curLang;
+  $$('#onbBody [data-lang]').forEach(x=>x.classList.toggle('on',x.dataset.lang===curLang)); }
+function pickLang(l){ const b=bridge(); if(b) b.set_setting('language',l); applyLang(l); }
+if($('#setLang')) $('#setLang').onchange=()=>pickLang($('#setLang').value);
 if($('#setKeep'))[...$('#setKeep').children].forEach(x=>x.addEventListener('click',()=>{ const b=bridge(); if(b) b.set_setting('keep_days',+x.dataset.d); }));
-function applyProvider(s){ if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':(s.keyHint||'sk-…'); if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':'No key yet';
-  const m=$('#setAiModel'); if(m){ m.placeholder=s.modelDefault||''; m.value=s.model===s.modelDefault?'':(s.model||''); } }
+function applyProvider(s){ const cf=s.provider==='cloudflare'; if($('#cfRow')){ $('#cfRow').hidden=!cf; $('#setCfAccount').value=s.cfAccount||''; }
+  if($('#setKey')) $('#setKey').placeholder=s.hasKey?'•••••• saved':(s.keyHint||'sk-…'); if($('#keyStatus')) $('#keyStatus').textContent=s.hasKey?'Key saved':(cf&&!s.cfAccount?'Add your Account ID and API token':'No key yet');
+  loadAiModels(); }
+async function loadAiModels(){ const b=bridge(), m=$('#setAiModel'); if(!b||!m) return;
+  m.innerHTML='<option>Loading models…</option>'; const r=await b.list_ai_models();
+  m.innerHTML=r.models.map(id=>`<option value="${esc(id)}">${esc(id)}${id===r.default?' (default)':''}</option>`).join('')+'<option value="__other">Other…</option>';
+  m.value=r.current; $('#setAiModelOther').hidden=true;
+  $('#aiModelHint').textContent=r.live?`${r.models.length} models from this provider`:'Add your API key to see every model'; }
+async function useAiModel(id){ const b=bridge(); if(!b||!id) return; const s=await b.set_ai_model(id); toast('Assistant model: '+s.model); loadAiModels(); }
 if($('#setProvider'))[...$('#setProvider').children].forEach(x=>x.addEventListener('click',async()=>{ const b=bridge(); if(b) applyProvider(await b.set_provider(x.dataset.p)); }));
-if($('#setAiModel')) $('#setAiModel').addEventListener('change',async()=>{ const b=bridge(); if(b){ applyProvider(await b.set_ai_model($('#setAiModel').value)); toast('Assistant model: '+($('#setAiModel').value||$('#setAiModel').placeholder)); } });
-if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey').value.trim(); const b=bridge(); if(v&&b){ b.set_key(v); $('#setKey').value=''; $('#setKey').placeholder='•••••• saved'; if($('#keyStatus')) $('#keyStatus').textContent='Key saved'; } });
+if($('#setAiModel')) $('#setAiModel').addEventListener('change',()=>{ const v=$('#setAiModel').value; if(v==='__other'){ const o=$('#setAiModelOther'); o.hidden=false; o.value=''; o.focus(); } else useAiModel(v); });
+if($('#setCfAccount')) $('#setCfAccount').addEventListener('change',async()=>{ const b=bridge(); if(!b) return; const r=await b.set_cf_account($('#setCfAccount').value); if(!r.ok){ toast(r.message); return; } toast('Account ID saved'); applyProvider(r); });
+if($('#setAiModelOther')) $('#setAiModelOther').addEventListener('change',()=>useAiModel($('#setAiModelOther').value.trim()));
+if($('#setKey')) $('#setKey').addEventListener('change',()=>{ const v=$('#setKey').value.trim(); const b=bridge(); if(v&&b){ b.set_key(v).then(async()=>applyProvider(await b.state())); $('#setKey').value=''; $('#setKey').placeholder='•••••• saved'; if($('#keyStatus')) $('#keyStatus').textContent='Key saved'; } });
 if($('#setTest')) $('#setTest').onclick=async()=>{ const b=bridge(), st=$('#keyStatus'); if(!b){ if(st) st.textContent='Runs in the app'; return; } if(st) st.textContent='Testing…'; const r=await b.test_key(); if(st) st.textContent=(r.ok?'✓ ':'✗ ')+r.message; };
 
 /* ---- copy / archive / delete ---- */
@@ -595,6 +626,7 @@ function chatText(){ return currentMsgs.map(m=>`You (${m.when}): ${m.q}\nAssista
 function archLabel(btn,arch){ const s=btn.querySelector(':scope > span:last-child'); if(s) s.textContent=arch?'Unarchive':'Archive'; }
 $('#mArchView').onclick=()=>{ mArch=!mArch; $('#mArchView').classList.toggle('on',mArch); archLabel($('#mArchive'),mArch); currentMeeting=null; loadMeetings(); };
 $('#mCopy').onclick=()=>{ if(!currentPairs.length){ toast('Open a meeting first.'); return; } copyText(meetingText()); };
+$('#mExport').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } const r=await b.export_meeting(currentMeeting); if(r.ok) toast('Exported: '+r.path); else if(!r.cancelled) toast(r.message||'Could not export'); };
 $('#mArchive').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } await b.archive_meeting(currentMeeting,!mArch); toast(mArch?'Meeting restored':'Meeting archived'); currentMeeting=null; loadMeetings(); };
 $('#mDelete').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } if(!confirm('Delete this meeting transcript permanently?')) return; await b.delete_meeting(currentMeeting); toast('Meeting deleted'); currentMeeting=null; loadMeetings(); };
 $('#aArchView').onclick=()=>{ aArch=!aArch; $('#aArchView').classList.toggle('on',aArch); archLabel($('#aArchive'),aArch); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Archived chats — open one to read it.':'Ask about the meeting below.'); loadChats(); };
@@ -666,7 +698,8 @@ async function boot(){ const b=bridge(); if(!b) return; try{ const s=await b.sta
   applyGerman(s.showGerman);
   setSegVal('#setProvider','data-p',s.provider); setSegVal('#setKeep','data-d',String(s.keepDays));
   if($('#setModel')) $('#setModel').value=s.speechModel;
-  if($('#setLang')) $('#setLang').value=s.language;
+  applySource(s.speechSource||'local');
+  applyLang(s.language);
   applyProvider(s);
   $('#status').innerHTML='Ready<b>'+esc(engineLabel)+'</b>';
   setRange('#setFont',s.font); setRange('#setOpacity',Math.round(s.opacity*100));

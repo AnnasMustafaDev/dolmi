@@ -2,7 +2,7 @@
 
 **Live meeting subtitles, translated to English — private and running entirely on your PC.**
 
-Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live English translation in a floating subtitle bar. German is the default spoken language, with 27+ other languages selectable. Speech recognition and translation run locally and your audio never leaves your PC; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
+Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live translation in a floating subtitle bar: German speech in English, or English speech in German. Speech recognition and translation run locally and your audio never leaves your PC; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
 > **On a Mac?** See [Mac/](Mac/README.md) — the same app for macOS 14.2+ (Apple Silicon).
 
@@ -23,10 +23,11 @@ Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack,
 - **Live subtitles** in a draggable, resizable, always-on-top bar, with the original line underneath, adjustable text size and opacity.
 - **Invisible mode** — the window and subtitle bar are hidden from screen shares, recordings and the taskbar. `Ctrl+Alt+Shift+D` turns it off.
 - **Any meeting app or browser** — Dolmi captures system audio (WASAPI loopback), so you still hear the meeting and need no virtual audio cable.
-- **Any language → English** — 27+ spoken languages, auto-detect, German by default.
+- **German ↔ English** — German speech gets English subtitles (the default), English speech gets German subtitles.
 - **You choose the models** — *Settings → This PC & speech models* detects your GPU, RAM and CPU, says how well each Whisper model runs on *this* PC, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
+- **Cloud captions (optional)** — *Settings → Captions by*: Gemini (hears and translates in one request), OpenAI or Cloudflare, with your own key. The live line follows the speaker about 1–1.5 s behind; the finished sentence lands ~1.5 s after they stop. Off by default — captions stay on the device.
 - **Meetings** — every session saved as Markdown + SRT in both languages. Copy, archive, delete, or summarize any meeting.
-- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini or NVIDIA key; optional.
+- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini, NVIDIA or Cloudflare Workers AI key; optional.
 - **Vocabulary & glossary** — teach Dolmi your names, products and terms so they're spelled and translated correctly, applied without a restart.
 - **Privacy controls** — turn off saving, or auto-delete files after 7, 30 or 90 days. No account, no telemetry.
 - **Proper Windows app** — a signed-runtime installer with Start-menu shortcut, clean upgrades and uninstall, light (Paper) and dark (Ink) themes, and a UI that works fully offline.
@@ -75,7 +76,7 @@ Uninstall from *Settings → Apps*. Your transcripts (`Documents\Dolmi`), settin
 | Whisper Large v3 Turbo | 1.6 GB | NVIDIA GPU (Auto's pick) — near-best accuracy, still fast |
 | Whisper Large v3 | 3.1 GB | Highest accuracy; needs an NVIDIA GPU for live use |
 
-Tiny and Base are there for very weak PCs. Each language also needs a ~150 MB translator. All of them live in `%USERPROFILE%\.cache\huggingface\hub`.
+Tiny and Base are there for very weak PCs. Each direction also needs a ~150 MB translator (German → English, English → German). All of them live in `%USERPROFILE%\.cache\huggingface\hub`.
 
 ### Run from source
 

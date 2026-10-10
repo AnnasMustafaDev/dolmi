@@ -15,8 +15,10 @@ def check(name, ok, extra=""):
     results.append(ok); print(("PASS " if ok else "FAIL ") + name + (f"  [{extra}]" if extra else ""))
 
 calls = []
+save_as = []   # what the fake Save dialog returns next
 class FakeWindow:
     def evaluate_js(self, js): calls.append(js)
+    def create_file_dialog(self, *a, **k): calls.append(('dialog', k)); return save_as.pop() if save_as else None
 
 # sandbox: point data folder + repo files (settings/vocab) at temp dirs
 tmp_root = Path(tempfile.mkdtemp()); tmp_data = Path(tempfile.mkdtemp()); tmp_cfg = Path(tempfile.mkdtemp()) / "Dolmi"
@@ -77,6 +79,16 @@ outside = tmp_root / "meeting_secret.md"; outside.write_text("**1** x  \n<sub>y<
 check("path traversal blocked (read)", api.read_meeting("../" + tmp_root.name + "/meeting_secret.md") == [] and api.read_meeting(str(outside)) == [])
 api.delete_meeting(str(outside))
 check("path traversal blocked (delete)", outside.exists())
+out_txt = tmp_root / "export"
+save_as.append((str(out_txt),))            # user picks a name without .txt, as a tuple like Cocoa returns
+r = api.export_meeting("meeting_2026-10-09_11-14.md")
+txt = (tmp_root / "export.txt").read_text(encoding="utf-8") if r.get("ok") else ""
+check("export writes captions + translation to a .txt", r.get("ok") and r["path"].endswith("export.txt")
+      and "Caption:     Geil, kein Cloud Browser." in txt and "Translation: Awesome, no Cloud browser." in txt
+      and "[11:35:06]" in txt and txt.startswith("Dolmi meeting — "))
+check("export suggests the meeting's name as .txt", any(isinstance(c, tuple) and c[1].get("save_filename") == "meeting_2026-10-09_11-14.txt" for c in calls))
+check("cancelled export writes nothing", api.export_meeting("meeting_2026-10-09_11-14.md") == {"ok": False, "cancelled": True})
+check("export refuses paths outside the data folder", api.export_meeting(str(outside)).get("ok") is False)
 
 # 6. vocab: saving the glossary must never touch vocabulary.txt
 vocab_before = (tmp_cfg / "vocabulary.txt").read_text(encoding="utf-8")
@@ -95,7 +107,34 @@ st = api.set_ai_model("nvidia/llama-3.1-nemotron-70b-instruct")
 check("custom assistant model saved per provider", st["model"] == "nvidia/llama-3.1-nemotron-70b-instruct" and bool(config.load_settings()["ai_models"].get("nvidia")))
 st = api.set_ai_model("")
 check("empty model restores the default", st["model"] == st["modelDefault"] and "nvidia" not in config.load_settings()["ai_models"])
+api.set_provider("gemini")
+r = api.list_ai_models()
+check("Gemini defaults to gemini-3.8-flash; no key -> built-in list", r["default"] == "gemini-3.8-flash"
+      and r["current"] == "gemini-3.8-flash" and r["live"] is False and r["models"][0] == "gemini-3.8-flash")
+st = api.set_provider("cloudflare")
+check("Cloudflare selectable; no key until account ID and token are both saved", st["provider"] == "cloudflare" and not st["hasKey"])
+check("bad Cloudflare account ID rejected", api.set_cf_account("not-an-id")["ok"] is False)
+api.set_key("cf-token-123")
+check("token alone isn't enough", api.state()["hasKey"] is False)
+r = api.set_cf_account("0123456789abcdef0123456789ABCDEF")
+check("account ID saved (lower-cased); key = account:token", r["ok"] and r["hasKey"]
+      and api._ai_key() == "0123456789abcdef0123456789abcdef:cf-token-123")
+api.set_key(""); api.set_cf_account("")
 api.set_provider("claude")
+check("only German and English can be spoken", api.set_setting("language", "fr") is False and api.set_setting("language", "auto") is False)
+api.set_setting("language", "en")
+check("English speech needs the English -> German translator", "opus-en" in api._needed_models() and "opus-de" not in api._needed_models())
+api._history = [("10:00:00", "We ship on Friday.", "Wir liefern am Freitag.")]
+check("the Assistant reads the English side (what was heard)", api._english("We ship on Friday.", "Wir liefern am Freitag.") == "We ship on Friday.")
+api.set_setting("language", "de")
+check("captions source must be local or a speech provider", api.set_setting("speech_source", "claude") is False
+      and api.set_setting("speech_source", "gemini") and api.state()["speechSource"] == "gemini")
+check("Gemini cloud captions need no local models", api._needed_models() == [] and api.missing_models() == [])
+api.set_setting("speech_source", "openai")
+check("OpenAI cloud captions still translate locally", api._needed_models() == ["opus-de"])
+api.set_setting("speech_source", "local")
+check("German speech: the Assistant reads the English subtitle", api._english("Wir liefern am Freitag.", "We ship on Friday.") == "We ship on Friday.")
+api._history = []
 
 # 8. summary guards (no API key in the sandbox)
 r = api.summarize("meeting_2026-10-09_11-14.md")

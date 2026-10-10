@@ -31,7 +31,7 @@ DEFAULTS = {
     "mode": "translate", "ai_provider": "claude", "ai_models": {}, "api_keys": {}, "ai_context": "",
     "ai_length": "short", "pro": "",
     "save_transcripts": True, "keep_days": 0, "privacy_seen": False, "data_folder": "",
-    "invisible": False, "theme": "paper",
+    "invisible": False, "theme": "paper", "cf_account": "", "speech_source": "local",
 }
 
 

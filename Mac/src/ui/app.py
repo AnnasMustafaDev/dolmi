@@ -23,6 +23,7 @@ import config
 import assistant
 import inbox
 import live_subs
+import cloud_speech
 
 import stealth
 
@@ -30,7 +31,9 @@ VERSION = config.version()
 ICON = config.ROOT / "assets" / "dolmi.png"   # the Dock icon when running from source
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
-SETTABLE = {"language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
+LANGUAGES = ("de", "en")   # German speech -> English subtitles, English speech -> German subtitles
+SPEECH_SOURCES = ("local", *cloud_speech.PROVIDERS)   # Settings → Captions by
+SETTABLE = {"speech_source", "language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
             "overlay", "theme", "ai_length", "ai_context", "opacity", "font"}
 
 
@@ -53,6 +56,8 @@ class Api:
         config.prepare()
         config.load_env()
         self._settings = config.load_settings()
+        if self._settings["language"] not in LANGUAGES:   # other languages and Auto-detect are gone
+            self._settings["language"] = "de"
         self._settings_lock = threading.Lock()
         self._data = config.data_folder(self._settings)
         self._data.mkdir(parents=True, exist_ok=True)
@@ -77,6 +82,7 @@ class Api:
         self._ids = itertools.count()
         self._level = 0.0
         self._pc = None                      # cached PC specs (pc_info)
+        self._model_lists = {}               # (provider, key) -> model IDs
         self._dl = set()                     # model keys downloading right now
         self._ui_q = queue.Queue()
         self._ask_q = queue.Queue()
@@ -159,6 +165,10 @@ class Api:
             print(f"inbox retention failed: {e}")
 
     # ------------------------------------------------------------------ state / settings
+    def _english(self, heard, subtitle):
+        """The English side of a caption: the subtitle for German speech, what was heard for English."""
+        return heard if self._settings["language"] == "en" else subtitle
+
     def _provider(self):
         p = self._settings["ai_provider"]
         return p if p in assistant.PROVIDERS else next(iter(assistant.PROVIDERS))
@@ -167,21 +177,32 @@ class Api:
         return self._settings["ai_models"].get(self._provider()) or assistant.PROVIDERS[self._provider()]["model"]
 
     def _ai_key(self):
-        return assistant.decrypt_key(self._settings["api_keys"].get(self._provider(), ""))
+        return self._key_for(self._provider())
+
+    def _key_for(self, provider):
+        """A provider's saved key; for Cloudflare "<account id>:<token>" (empty until both are saved)."""
+        key = assistant.decrypt_key(self._settings["api_keys"].get(provider, ""))
+        if key and provider == "cloudflare":
+            account = self._settings.get("cf_account", "")
+            return f"{account}:{key}" if account else ""
+        return key
 
     def _engine_label(self):
         e = self._engine
+        if e and getattr(e, "cloud", False):
+            return f"CLOUD · {e.model_name}"
         return f"{e.device.upper()} · {e.model_name}" if e else "not loaded"
 
     def state(self):
         s = self._settings
         return {
-            "language": s["language"], "showGerman": s["show_german"], "invisible": s["invisible"],
+            "speechSource": s.get("speech_source", "local"), "language": s["language"], "showGerman": s["show_german"], "invisible": s["invisible"],
             "saveTranscripts": s["save_transcripts"], "keepDays": s["keep_days"],
             "provider": self._provider(), "providers": {k: v["label"] for k, v in assistant.PROVIDERS.items()},
             "model": self._ai_model(), "hasKey": bool(self._ai_key()),
             "modelDefault": assistant.PROVIDERS[self._provider()]["model"],
             "keyHint": assistant.PROVIDERS[self._provider()]["key_hint"],
+            "cfAccount": s.get("cf_account", ""),
             "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
             "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
@@ -192,6 +213,10 @@ class Api:
     def set_setting(self, key, value):
         if key not in SETTABLE:
             return False
+        if key == "language" and value not in LANGUAGES:
+            return False
+        if key == "speech_source" and value not in SPEECH_SOURCES:
+            return False
         with self._settings_lock:
             self._settings[key] = value
             config.save_settings(self._settings)
@@ -199,7 +224,7 @@ class Api:
             threading.Thread(target=self._purge_old, daemon=True).start()
         if key in ("opacity", "font"):
             self._push_overlay_style()
-        if key in ("model", "language") and not self._session:
+        if key in ("model", "language", "speech_source") and not self._session:
             self._engine = None              # next Start loads the newly chosen model/translator
         return True
 
@@ -265,6 +290,35 @@ class Api:
             config.save_settings(self._settings)
         return True
 
+    def list_ai_models(self):
+        """Models for Settings → Assistant → Model: the provider's live list (with a key; NVIDIA's is
+        public), else a short built-in one. Cached per provider and key until the app restarts."""
+        provider, key = self._provider(), self._ai_key()
+        cache_key = (provider, key)
+        live = bool(key) or provider == "nvidia"
+        if live and cache_key not in self._model_lists:
+            try:
+                self._model_lists[cache_key] = assistant.list_models(provider, key)
+            except assistant.AssistantError as e:
+                print(e)
+                live = False
+        models = self._model_lists.get(cache_key) if live else None
+        models = list(models or assistant.KNOWN_MODELS[provider])
+        if self._ai_model() not in models:
+            models.insert(1, self._ai_model())
+        return {"models": models, "live": bool(live and cache_key in self._model_lists),
+                "current": self._ai_model(), "default": assistant.PROVIDERS[provider]["model"]}
+
+    def set_cf_account(self, account):
+        """The Cloudflare account ID (32 hex characters, from the Workers AI "Use REST API" page)."""
+        account = (account or "").strip().lower()
+        if account and not re.fullmatch(r"[0-9a-f]{32}", account):
+            return {"ok": False, "message": "An account ID is 32 letters and digits (0-9, a-f)."}
+        with self._settings_lock:
+            self._settings["cf_account"] = account
+            config.save_settings(self._settings)
+        return {"ok": True, **self.state()}
+
     def set_ai_model(self, model):
         """The Assistant model for the current provider; empty goes back to the provider's default."""
         model = (model or "").strip()[:120]
@@ -328,15 +382,21 @@ class Api:
             if not self._engine:
                 self._emit("onEngine", "loading models…")
                 watch = self._watch_downloads(self._needed_models())
+                source = self._settings.get("speech_source", "local")
                 try:
-                    self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
-                                                    self._settings["language"])
+                    if source == "local":
+                        self._engine = live_subs.Engine(self._settings["model"], self._settings["device"],
+                                                        self._settings["language"])
+                    else:
+                        # captions use the provider's fast speech model, not the Assistant's model
+                        self._engine = cloud_speech.CloudEngine(source, self._key_for(source),
+                                                                self._settings["language"])
                 except Exception as e:
                     watch.set()
                     with self._lock:
                         if self._alive(token):
                             self._session = None
-                    self._emit("onError", f"Could not load models: {e}")
+                    self._emit("onError", f"Could not start captions: {e}")
                     self._emit("onStopped")
                     return
                 watch.set()
@@ -394,9 +454,11 @@ class Api:
     def _needed_models(self):
         """The speech model and translator the next Start will use."""
         import models
+        source, lang = self._settings.get("speech_source", "local"), self._settings["language"]
+        if source == "gemini":
+            return []                                 # Gemini hears and translates: nothing local
         speech = self._settings["model"] if self._settings["model"] != "auto" else self._auto_speech()
-        lang = self._settings["language"]
-        return [k for k in (speech, models.translator_key("mul" if lang == "auto" else lang)) if k]
+        return [k for k in ((speech if source == "local" else None), models.translator_key(lang)) if k]
 
     def missing_models(self):
         """The models the next Start needs that aren't on disk yet."""
@@ -442,7 +504,7 @@ class Api:
         pcm = {"ram_gb": pc["ram_gb"] or 8, "cores": pc["cores"], "gpu": pc["gpu"]}
         needed = set(self._needed_models())
         lang = self._settings["language"]
-        translators = {models.translator_key("mul" if lang == "auto" else lang), "opus-mul"} - {None}
+        translators = {models.translator_key(lang)} - {None}
         loaded = set()
         if self._engine:
             loaded = {self._engine.model_name, *self._engine.translators}
@@ -556,6 +618,47 @@ class Api:
         return [{"ts": ts.strip(), "de": de.strip(), "en": en.strip()}
                 for ts, en, de in _MEETING_RE.findall(p.read_text(encoding="utf-8"))]
 
+    def meeting_txt(self, name):
+        """A saved meeting as plain text: each line's time, the caption (what was said) and its translation."""
+        p = self._meeting_path(name)
+        pairs = self.read_meeting(name)
+        if not p or not pairs:
+            return ""
+        try:
+            when = f"{datetime.strptime(p.stem.removeprefix('meeting_'), '%Y-%m-%d_%H-%M'):%A %d %B %Y, %H:%M}"
+        except ValueError:
+            when = p.stem
+        out = [f"Dolmi meeting — {when}", f"{len(pairs)} lines · caption (what was said) and translation", ""]
+        for x in pairs:
+            out += [f"[{x['ts']}]", f"Caption:     {x['de']}", f"Translation: {x['en']}", ""]
+        return "\n".join(out)
+
+    def export_meeting(self, name):
+        """Save a meeting as a .txt file wherever the user picks (system Save dialog)."""
+        text = self.meeting_txt(name)
+        if not text:
+            return {"ok": False, "message": "That meeting has no lines to export."}
+        try:
+            import webview
+            downloads = Path.home() / "Downloads"
+            chosen = self._window.create_file_dialog(
+                webview.FileDialog.SAVE, directory=str(downloads if downloads.is_dir() else self._data),
+                save_filename=Path(str(name)).with_suffix(".txt").name)
+        except Exception as e:
+            return {"ok": False, "message": f"Could not open the save dialog: {e}"}
+        if isinstance(chosen, (list, tuple)):
+            chosen = chosen[0] if chosen else None
+        if not chosen:
+            return {"ok": False, "cancelled": True}
+        target = Path(chosen)
+        if target.suffix.lower() != ".txt":
+            target = target.with_name(target.name + ".txt")
+        try:
+            target.write_text(text, encoding="utf-8")
+        except OSError as e:
+            return {"ok": False, "message": f"Could not save: {e}"}
+        return {"ok": True, "path": str(target)}
+
     def delete_meeting(self, name):
         p = self._meeting_path(name)
         if p:
@@ -603,7 +706,8 @@ class Api:
             return -1
         qid = next(self._ids)
         with self._hist_lock:
-            meeting = [en for _, _, en in self._history[-9:] if en != question][-8:]
+            lines = [self._english(heard, sub) for _, heard, sub in self._history[-9:]]
+            meeting = [line for line in lines if line != question][-8:]
         self._asks[qid] = {"q": question, "meeting": meeting}
         self._ask_q.put(qid)
         return qid
@@ -712,14 +816,14 @@ class Api:
             pairs = self.read_meeting(meeting)
             if not pairs:
                 return {"ok": False, "message": "That meeting has no lines to summarize."}
-            lines = [f"[{p['ts']}] {p['en']}" for p in pairs]
+            lines = [f"[{p['ts']}] {self._english(p['de'], p['en'])}" for p in pairs]
             stamp = str(meeting).removeprefix("meeting_").removesuffix(".md")
         else:
             with self._hist_lock:
                 history = list(self._history)
             if not history:
                 return {"ok": False, "message": "Nothing to summarize yet — run a live session first."}
-            lines = [f"[{t}] {en}" for t, de, en in history]
+            lines = [f"[{t}] {self._english(heard, sub)}" for t, heard, sub in history]
             tr = self._last_transcript
             stamp = tr.md.stem.removeprefix("meeting_") if tr and tr.md else f"{datetime.now():%Y-%m-%d_%H-%M}"
         if not self._ai_key():

@@ -17,5 +17,6 @@ if os.environ.get("DOLMI_NEVER_SET"):   # never runs: lists the imports PyInstal
     import anthropic, AppKit, ctranslate2, faster_whisper, Foundation, huggingface_hub  # noqa: E401,F401
     import keyring, keyring.backends.macOS, numpy, objc, openai, PyObjCTools.AppHelper  # noqa: E401,F401
     import sentencepiece, sounddevice, sqlite3, webview, webview.platforms.cocoa, WebKit  # noqa: E401,F401
+    import base64, urllib.request, wave  # noqa: E401,F401  (cloud_speech)
 
 runpy.run_path(os.path.join(APP, "src", "main.py"), run_name="__main__")

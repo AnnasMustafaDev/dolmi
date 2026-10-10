@@ -7,7 +7,7 @@ MAC = Path(SPECPATH).parent
 VERSION = (MAC / "VERSION").read_text().strip()
 
 # the program itself, as source, in Contents/Resources/app (see launcher.py)
-APP_FILES = ["assistant.py", "inbox.py", "live_subs.py", "models.py", "stealth.py", "VERSION",
+APP_FILES = ["assistant.py", "cloud_speech.py", "inbox.py", "live_subs.py", "models.py", "stealth.py", "VERSION",
              "vocabulary.example.txt", "glossary.example.txt", "LICENSE", "THIRD-PARTY-NOTICES.md",
              "PRIVACY.md", "assets/dolmi.png", "audio/dolmi-audio"]
 datas = [(str(MAC / f), str(Path("app") / Path(f).parent)) for f in APP_FILES]

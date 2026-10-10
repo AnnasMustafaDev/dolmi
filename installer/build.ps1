@@ -69,7 +69,7 @@ Assert-Exit "pip install"
 Get-ChildItem $site -Directory -Filter "bin" | Remove-Item -Recurse -Force   # console-script shims, unused
 
 Step "App files"
-foreach ($f in "live_subs.py", "assistant.py", "inbox.py", "models.py", "stealth.py",
+foreach ($f in "live_subs.py", "cloud_speech.py", "assistant.py", "inbox.py", "models.py", "stealth.py",
                "vocabulary.example.txt", "glossary.example.txt") {
   Copy-Item (Join-Path $root $f) $appDir
 }

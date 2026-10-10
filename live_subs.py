@@ -26,6 +26,7 @@ PAUSE_TO_FINALIZE = 0.6    # s of silence that ends a sentence
 MAX_UTTERANCE = 12.0       # s, force-finalize long monologues
 MIN_SENTENCE = 3.0         # s, a draft ending in . ? ! this long is finalized without a pause
 SILENCE_RMS = 0.006        # energy threshold (raise if noisy)
+CLOUD_SPLIT, CLOUD_BREATH, CLOUD_MAX = 3.0, 0.2, 6.0   # cloud captions: cut long speech sooner
 
 HALLUCINATIONS = [         # typical Whisper output on silence / noise
     "untertitel", "amara.org", "zdf", "vielen dank fürs zuschauen",
@@ -147,12 +148,10 @@ class Engine:
         print(f"📥 Whisper '{model}' on {device} ({ctype})")
         self.model_name, self.device = model, device
         self.asr = WhisperModel(model, device=device, compute_type=ctype)
-        self.language = language   # spoken language code, or "auto"
+        self.language = language   # spoken language: "de" or "en"
         self.translators = {}      # model key -> (translator, source spm, target spm)
-        # Load (and on first use download) the translator up front; auto-detect falls back to "mul"
-        first = models.translator_key("mul" if language == "auto" else language)
-        if first:
-            self._translator(first, download=True)
+        # Load (and on first use download) the translator up front
+        self._translator(models.translator_key(language), download=True)
         self.context = ""   # previous sentence -> better names/terms
         self.reload_terms()
 
@@ -187,7 +186,7 @@ class Engine:
     def transcribe(self, audio):
         """Speech -> (text in the spoken language, language code)."""
         segs, info = self.asr.transcribe(
-            audio, language=None if self.language == "auto" else self.language,
+            audio, language=self.language,
             beam_size=5, vad_filter=True, condition_on_previous_text=False,
             # spelling hints go in as hotwords; only the previous sentence is the prompt
             hotwords=self.glossary or None, initial_prompt=self.context[-200:] or None)
@@ -195,12 +194,10 @@ class Engine:
         return ("" if echoes_terms(text, self.terms) else text), info.language
 
     def translate(self, text, lang):
-        key = models.translator_key(lang)
-        if key is None:   # already English
-            return self.vocab.finish(text)
-        t = self._translator(key) or self._translator("opus-mul")
+        key = models.translator_key(lang if lang in models.LANGUAGES else self.language)
+        t = self._translator(key)
         if t is None:
-            return f"[{lang}] {text}"   # no translator installed for this language yet
+            return f"[{lang}] {text}"   # the translator for this direction isn't installed yet
         mt, sp_src, sp_tgt = t
         text, slots = self.vocab.protect(text)
         toks = sp_src.encode(text, out_type=str)[:400] + ["</s>"]
@@ -290,6 +287,16 @@ def worker(eng, audio_q, ui_q, tr, stop, detect=speech_gap):
         pause = now - last_voice
 
         finalize = pause >= PAUSE_TO_FINALIZE or dur >= MAX_UTTERANCE
+        if getattr(eng, "cloud", False):   # cloud captions: requests run off this thread, so nothing waits
+            # long speech is cut at a short breath so captions keep flowing (requests are ~1 s each)
+            if finalize or (dur >= CLOUD_SPLIT and pause >= CLOUD_BREATH) or dur >= CLOUD_MAX:
+                if dur > 0.8:
+                    eng.submit(buf, utt_start, now, ui_q, tr)
+                buf, utt_start, last_draft = np.zeros(0, np.float32), None, 0.0
+            elif dur >= 0.8 and now - last_draft >= eng.DRAFT_EVERY:   # shorter clips get guessed at
+                eng.draft(buf, ui_q)              # live line ~1 s after the words, not after the sentence
+                last_draft = now
+            continue
         if not finalize and (now - last_draft < DRAFT_EVERY or dur <= 0.8):
             continue   # not time for a draft yet
         de, lang = eng.transcribe(buf)

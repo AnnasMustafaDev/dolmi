@@ -4,7 +4,7 @@
 
 > This is the **macOS** version. The Windows version lives in the repository root; both share the same UI, engine and features.
 
-Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live English translation in a floating subtitle bar. German is the default spoken language, with 27+ other languages selectable. Speech recognition and translation run locally and your audio never leaves your Mac; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
+Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live translation in a floating subtitle bar: German speech in English, or English speech in German. Speech recognition and translation run locally and your audio never leaves your Mac; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
 > macOS 14.2 Sonoma or later, Apple Silicon. MIT licence. Build `Dolmi.app` and a `.dmg` with one command (below).
 
@@ -23,10 +23,11 @@ Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, a
 - **Live subtitles** in a draggable, resizable, always-on-top bar, with the original line underneath, adjustable text size and opacity.
 - **Invisible mode** — the window and subtitle bar are hidden from screen shares and recordings, and Dolmi leaves the Dock and ⌘-Tab. `⌃⌥⇧D` (Control-Option-Shift-D) turns it off from anywhere.
 - **Any meeting app or browser** — Dolmi captures system audio with a Core Audio process tap, so you still hear the meeting and need no virtual audio cable (no BlackHole). A microphone works too.
-- **Any language → English** — 27+ spoken languages, auto-detect, German by default.
+- **German ↔ English** — German speech gets English subtitles (the default), English speech gets German subtitles.
 - **You choose the models** — *Settings → This Mac & speech models* detects your chip, RAM and CPU cores, says how well each Whisper model runs on *this* Mac, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
+- **Cloud captions (optional)** — *Settings → Captions by*: Gemini (hears and translates in one request), OpenAI or Cloudflare, with your own key. The live line follows the speaker about 1–1.5 s behind; the finished sentence lands ~1.5 s after they stop. Off by default — captions stay on the device.
 - **Meetings** — every session saved as Markdown + SRT in both languages. Copy, archive, delete, or summarize any meeting.
-- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini or NVIDIA key; optional.
+- **Assistant** — ask about the meeting while it happens ("what did Jonas commit to?"). Chats are searchable, and can be copied, archived or deleted. Uses your own Claude, OpenAI, Gemini, NVIDIA or Cloudflare Workers AI key; optional.
 - **Vocabulary & glossary** — teach Dolmi your names, products and terms so they're spelled and translated correctly, applied without a restart.
 - **Privacy controls** — turn off saving, or auto-delete files after 7, 30 or 90 days. No account, no telemetry.
 - **Proper Mac app** — `Dolmi.app` in a drag-to-Applications `.dmg`, floats over full-screen meetings on every Space, light (Paper) and dark (Ink) themes, and a UI that works fully offline.
@@ -59,7 +60,7 @@ Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, a
 
 1. Build it (once): `./packaging/build.sh` → `dist/Dolmi-x.y.z.dmg` (needs Xcode Command Line Tools: `xcode-select --install`, and `brew install python@3.12`).
 2. Open the `.dmg` and drag **Dolmi** to **Applications**.
-3. The app is ad-hoc signed, not notarized, so the first time **right-click Dolmi → Open → Open** (or *System Settings → Privacy & Security → Open Anyway*).
+3. The app is signed with a local certificate, not notarized, so the first time **right-click Dolmi → Open → Open** (or *System Settings → Privacy & Security → Open Anyway*).
 4. Press **▶ Start**. macOS asks once to let Dolmi record **System Audio** — allow it (*System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only*). If Start needs a model you don't have, Dolmi shows what it needs and how big it is first. Models download once and then work offline.
 
 To uninstall, move Dolmi.app to the Bin. Your transcripts (`~/Documents/Dolmi`), settings (`~/Library/Application Support/Dolmi`) and models (`~/.cache/huggingface`) are kept.
@@ -73,7 +74,7 @@ To uninstall, move Dolmi.app to the Bin. Your transcripts (`~/Documents/Dolmi`),
 | Whisper Large v3 Turbo | 1.6 GB | Near-best accuracy; only Pro/Max/Ultra chips keep up live |
 | Whisper Large v3 | 3.1 GB | Highest accuracy; too slow for live use on a Mac |
 
-Whisper runs on the CPU cores (CTranslate2 with Apple Accelerate, int8); there is no GPU path on the Mac. Tiny and Base are there for older Macs. Each language also needs a ~150 MB translator.
+Whisper runs on the CPU cores (CTranslate2 with Apple Accelerate, int8); there is no GPU path on the Mac. Tiny and Base are there for older Macs. Each direction also needs a ~150 MB translator (German → English, English → German).
 
 ### Run from source
 
@@ -100,7 +101,7 @@ App plays audio ─► Core Audio process tap (you still hear it)
 | UI | HTML/CSS in a native window (pywebview + WKWebView); the subtitle bar is a frameless, transparent webview on every Space |
 | Invisible mode | `NSWindow.sharingType = none` + Dock hiding; ⌃⌥⇧D via Carbon `RegisterEventHotKey` (no Accessibility permission) |
 | API keys | Encrypted with a random secret kept in the login Keychain |
-| App | PyInstaller `Dolmi.app` + `.dmg` (`packaging/build.sh`), ad-hoc signed |
+| App | PyInstaller `Dolmi.app` + `.dmg` (`packaging/build.sh`), signed with a local certificate |
 
 See [SPECS.md](SPECS.md) for the full technical details, models, languages and system requirements.
 
@@ -114,7 +115,7 @@ Transcribing other people processes their personal data, so tell meeting partici
 
 ### Signing
 
-Builds are ad-hoc signed, not notarized: Gatekeeper asks once (right-click → Open). Notarization needs an Apple Developer ID.
+`build.sh` signs with **Dolmi Local Signing**, a self-signed certificate it creates once in your login Keychain (`packaging/make-signing-identity.sh`). macOS ties the System Audio Recording permission to the signature, so with a fixed certificate every rebuild keeps the permission (ad-hoc signatures change each build and lose it). It is not an Apple Developer ID and builds aren't notarized: on other Macs Gatekeeper asks once (right-click → Open). Remove the certificate in Keychain Access → login → My Certificates.
 
 ---
 

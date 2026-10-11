@@ -21,8 +21,9 @@ venv/bin/pyinstaller --noconfirm --clean --log-level WARN --distpath dist --work
 echo "[4/5] Sign"
 # A fixed local certificate keeps the System Audio Recording permission across rebuilds
 # (ad-hoc signatures change every build). Not notarized: other Macs still ask once (right-click → Open).
-./packaging/make-signing-identity.sh || true
-if security find-certificate -c "Dolmi Local Signing" >/dev/null 2>&1; then
+# On CI (GitHub Actions sets CI=true) a throwaway runner certificate means nothing to users: sign ad hoc.
+[[ -n "${CI:-}" ]] || ./packaging/make-signing-identity.sh || true
+if [[ -z "${CI:-}" ]] && security find-certificate -c "Dolmi Local Signing" >/dev/null 2>&1; then
   codesign --force --deep --sign "Dolmi Local Signing" dist/Dolmi.app
 else
   echo "    no local signing certificate: ad-hoc signing (macOS asks for audio permission again after rebuilds)"

@@ -1,16 +1,19 @@
 name: Release
 
-# Push a tag like v2.0.1 (matching the VERSION file) to build Dolmi-Setup-2.0.1.exe, test it on a clean
-# runner, and publish it as a draft GitHub Release. Review the draft, then click Publish.
+# Push a tag like v2.1.0 (matching VERSION and Mac/VERSION) to build Dolmi-Setup-2.1.0.exe and
+# Dolmi-2.1.0-macOS.dmg, test both on clean runners, and publish them together as one draft GitHub
+# Release. Review the draft, then click Publish.
+# Run it from the Actions tab ("Run workflow") to build and test both without releasing anything.
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: write          # needed to create the release
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -20,12 +23,15 @@ jobs:
           python-version: "3.12"
           architecture: x64
 
-      - name: Tag matches VERSION
+      - name: Version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}".TrimStart("v")
           $file = (Get-Content VERSION -Raw).Trim()
-          if ($tag -ne $file) { throw "Tag v$tag does not match VERSION ($file). Bump VERSION first." }
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $tag = "${{ github.ref_name }}".TrimStart("v")
+            if ($tag -ne $file) { throw "Tag v$tag does not match VERSION ($file). Bump VERSION first." }
+          }
+          "VERSION=$file" | Out-File -Append $env:GITHUB_ENV
 
       - name: Tests
         shell: pwsh
@@ -43,32 +49,97 @@ jobs:
 
       - name: Build installer
         shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
-          ./installer/build.ps1 -Version $version -Python (Get-Command python).Source
+        run: ./installer/build.ps1 -Version $env:VERSION -Python (Get-Command python).Source
 
       # Release gate: install, launch, upgrade and uninstall the real setup.exe on this clean runner.
       # The upgrade build is a copy with a bumped version and is deleted so it never gets published.
       - name: Install test (silent install, launch, upgrade, uninstall)
         shell: pwsh
         run: |
-          $v = "${{ github.ref_name }}".TrimStart("v")
+          $v = $env:VERSION
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DMyAppVersion=$v.1" installer\dolmi.iss
           ./installer/test-install.ps1 -Setup "dist\Dolmi-Setup-$v.exe" -Version $v `
             -UpgradeSetup "dist\Dolmi-Setup-$v.1.exe" -UpgradeVersion "$v.1"
           Remove-Item "dist\Dolmi-Setup-$v.1.exe"
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/Dolmi-Setup-*.exe
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  mac:
+    runs-on: macos-15          # Apple Silicon; its SDK has the Core Audio process-tap API (macOS 14.2+)
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Version
+        run: |
+          file="$(tr -d '[:space:]' < Mac/VERSION)"
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$file" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Mac/VERSION ($file). Bump Mac/VERSION first."; exit 1
+          fi
+          echo "VERSION=$file" >> "$GITHUB_ENV"
+
+      - name: Tests
+        working-directory: Mac
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-lock.txt pytest
+          python -m pytest -q tests/test_helpers.py
+          python tests/test_webview_bridge.py
+
+      - name: Build Dolmi.app and the disk image
+        run: zsh Mac/packaging/build.sh
+
+      - name: Check and name the disk image
+        working-directory: Mac/dist
+        run: |
+          codesign --verify --deep --strict Dolmi.app
+          hdiutil verify "Dolmi-$VERSION.dmg"
+          mv "Dolmi-$VERSION.dmg" "Dolmi-$VERSION-macOS.dmg"
+          shasum -a 256 "Dolmi-$VERSION-macOS.dmg" > SHA256SUMS-mac.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: |
+            Mac/dist/Dolmi-*-macOS.dmg
+            Mac/dist/SHA256SUMS-mac.txt
+          if-no-files-found: error
+
+  release:
+    needs: [windows, mac]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: One checksum file for both installers
+        run: |
+          cat out/SHA256SUMS.txt out/SHA256SUMS-mac.txt | tr -d '\r' > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Publish draft GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            dist/Dolmi-Setup-*.exe
-            dist/SHA256SUMS.txt
+            out/Dolmi-Setup-*.exe
+            out/Dolmi-*-macOS.dmg
+            SHA256SUMS.txt
           draft: true
           generate_release_notes: true
           body: |
-            **Install:** download `Dolmi-Setup-….exe` below and run it. No admin rights needed. Tick *GPU speech recognition* during setup if you have an NVIDIA card.
+            **Windows 10 / 11:** download `Dolmi-Setup-….exe` and run it. No admin rights needed. Tick *GPU speech recognition* during setup if you have an NVIDIA card. The installer isn't code-signed yet, so Windows may show "Windows protected your PC": click **More info → Run anyway**. On PCs with Smart App Control turned on, unsigned installers can be blocked entirely.
 
-            The installer is not code-signed yet, so Windows may show "Windows protected your PC". Click **More info → Run anyway**. On PCs with Smart App Control turned on, unsigned installers can be blocked entirely.
+            **macOS 14.2+ (Apple Silicon):** download `Dolmi-…-macOS.dmg`, open it and drag Dolmi to Applications. The app isn't notarized by Apple, so the first time macOS refuses to open it: go to **System Settings → Privacy & Security** and click **Open Anyway**. Then allow *System Audio Recording* when Dolmi asks.
 
-            Check your download against `SHA256SUMS.txt`: `Get-FileHash .\Dolmi-Setup-*.exe -Algorithm SHA256`
+            Check your download against `SHA256SUMS.txt`: `Get-FileHash .\Dolmi-Setup-*.exe -Algorithm SHA256` on Windows, `shasum -a 256 Dolmi-*-macOS.dmg` on a Mac.

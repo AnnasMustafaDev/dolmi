@@ -155,12 +155,15 @@ def test_inline_thinking_is_dropped_even_when_tags_are_split():
     assert "".join(assistant.strip_thinking(["no thinking here"])) == "no thinking here"
     assert "".join(assistant.strip_thinking(["a < b", " and c"])) == "a < b and c"
 
-def test_only_german_and_english_each_with_its_own_direction():
+def test_languages_get_english_subtitles_and_english_gets_german():
     import models
-    assert set(models.LANGUAGES) == {"de", "en"}
+    assert len(models.LANGUAGES) == 28 and models.SUBTITLES["fr"] == "en" and models.SUBTITLES["en"] == "de"
     de, en = models.BY_KEY[models.translator_key("de")], models.BY_KEY[models.translator_key("en")]
     assert de.repo == "gaudi/opus-mt-de-en-ctranslate2" and en.repo == "gaudi/opus-mt-en-de-ctranslate2"
-    assert models.translator_key("fr") is None and models.translator_key("auto") is None
+    assert models.translator_key("fr") == "opus-fr" and models.BY_KEY["opus-fr"].repo == "gaudi/opus-mt-fr-en-ctranslate2"
+    # languages without their own translator, and Auto-detect, use the multilingual -> English model
+    assert models.translator_key("pt") == models.translator_key("auto") == "opus-mul"
+    assert models.BY_KEY["opus-mul"].repo == "gaudi/opus-mt-mul-en-ctranslate2"
 
 def test_cloudflare_puts_the_account_id_in_the_endpoint():
     import assistant

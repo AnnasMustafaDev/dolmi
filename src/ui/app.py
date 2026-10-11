@@ -38,7 +38,6 @@ _u = ctypes.windll.user32
 VERSION = config.version()
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
-LANGUAGES = ("de", "en")   # German speech -> English subtitles, English speech -> German subtitles
 SPEECH_SOURCES = ("local", *cloud_speech.PROVIDERS)   # Settings → Captions by
 SETTABLE = {"speech_source", "language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
             "overlay", "theme", "ai_length", "ai_context", "opacity", "font"}
@@ -103,12 +102,17 @@ def _set_capture(hwnd, hidden):
         return False
 
 
+def _spoken_language_ok(code):
+    import models
+    return code == "auto" or code in models.LANGUAGES
+
+
 class Api:
     def __init__(self):
         config.prepare()
         config.load_env()
         self._settings = config.load_settings()
-        if self._settings["language"] not in LANGUAGES:   # other languages and Auto-detect are gone
+        if not _spoken_language_ok(self._settings["language"]):
             self._settings["language"] = "de"
         self._settings_lock = threading.Lock()
         self._data = config.data_folder(self._settings)
@@ -264,7 +268,7 @@ class Api:
     def set_setting(self, key, value):
         if key not in SETTABLE:
             return False
-        if key == "language" and value not in LANGUAGES:
+        if key == "language" and not _spoken_language_ok(value):
             return False
         if key == "speech_source" and value not in SPEECH_SOURCES:
             return False
@@ -572,7 +576,7 @@ class Api:
         pcm = {"ram_gb": pc["ram_gb"] or 8, "cores": pc["cores"], "gpu": pc["gpu"]}
         needed = set(self._needed_models())
         lang = self._settings["language"]
-        translators = {models.translator_key(lang)} - {None}
+        translators = {models.translator_key(lang)} | ({"opus-mul"} if lang != "en" else set())
         loaded = set()
         if self._engine:
             loaded = {self._engine.model_name, *self._engine.translators}

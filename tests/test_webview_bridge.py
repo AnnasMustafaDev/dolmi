@@ -121,7 +121,10 @@ check("account ID saved (lower-cased); key = account:token", r["ok"] and r["hasK
       and api._ai_key() == "0123456789abcdef0123456789abcdef:cf-token-123")
 api.set_key(""); api.set_cf_account("")
 api.set_provider("claude")
-check("only German and English can be spoken", api.set_setting("language", "fr") is False and api.set_setting("language", "auto") is False)
+check("27 languages and Auto-detect can be spoken; unknown codes can't",
+      api.set_setting("language", "fr") is True and api.set_setting("language", "xx") is False)
+api.set_setting("language", "auto")
+check("Auto-detect needs the multilingual translator", "opus-mul" in api._needed_models())
 api.set_setting("language", "en")
 check("English speech needs the English -> German translator", "opus-en" in api._needed_models() and "opus-de" not in api._needed_models())
 api._history = [("10:00:00", "We ship on Friday.", "Wir liefern am Freitag.")]

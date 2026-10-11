@@ -27,7 +27,7 @@ class Model:
     speed: int          # 1-5, relative, on CPU
     note: str
 
-SPEECH, TRANSLATE = "Speech recognition (speech → text)", "Translation (German ↔ English)"
+SPEECH, TRANSLATE = "Speech recognition (speech → text, 99 languages)", "Translation (→ English, English → German)"
 
 CATALOG = [
     Model("tiny", "Whisper Tiny", "Systran/faster-whisper-tiny", SPEECH, 78, 1, 2, "no", 0, 1, 5,
@@ -45,17 +45,40 @@ CATALOG = [
           "Highest accuracy. Too slow for live subtitles without an NVIDIA GPU."),
 ]
 
-# Dolmi translates between German and English: German speech gets English subtitles, English
-# speech gets German subtitles. Each direction has its own Opus-MT translator (CTranslate2, int8).
-LANGUAGES = {"de": "German", "en": "English"}
-SUBTITLES = {"de": "en", "en": "de"}          # spoken language -> subtitle language
-TRANSLATOR_SIZES = {"de": 152, "en": 152}
+# Spoken languages Dolmi offers. Every language gets English subtitles, except English, which gets
+# German subtitles. Each has a ready-made Opus-MT translator (CTranslate2, ~150-180 MB) except those
+# in NO_OWN_TRANSLATOR, which use the multilingual -> English model (also used for Auto-detect).
+LANGUAGES = {
+    "de": "German", "fr": "French", "es": "Spanish", "it": "Italian", "nl": "Dutch",
+    "pl": "Polish", "pt": "Portuguese", "ru": "Russian", "uk": "Ukrainian", "tr": "Turkish",
+    "ar": "Arabic", "fa": "Persian", "ur": "Urdu", "hi": "Hindi", "zh": "Chinese",
+    "ja": "Japanese", "ko": "Korean", "sv": "Swedish", "da": "Danish", "fi": "Finnish",
+    "cs": "Czech", "hu": "Hungarian", "ro": "Romanian", "el": "Greek", "bg": "Bulgarian",
+    "id": "Indonesian", "vi": "Vietnamese", "en": "English",
+}
+SUBTITLES = {code: "de" if code == "en" else "en" for code in LANGUAGES}   # spoken -> subtitle language
+NO_OWN_TRANSLATOR = {"pt", "fa", "ro", "el"}
+TRANSLATOR_SIZES = {"de": 152, "fr": 154, "es": 160, "it": 177, "nl": 162, "pl": 158, "ru": 160,
+                    "uk": 158, "tr": 157, "ar": 159, "zh": 160, "ja": 155, "ko": 160, "hi": 157,
+                    "ur": 158, "sv": 151, "da": 153, "fi": 154, "cs": 157, "hu": 157, "bg": 158,
+                    "id": 149, "vi": 148, "en": 152, "mul": 159}
 
 def translator_key(lang):
-    """Model key of the translator for a spoken language ("opus-de" = German → English)."""
-    return f"opus-{lang}" if lang in TRANSLATOR_SIZES else None
+    """Model key of the translator for a spoken language: "opus-de" = German -> English,
+    "opus-en" = English -> German, "opus-mul" = many languages -> English (also for Auto-detect)."""
+    if lang == "en":
+        return "opus-en"
+    if lang == "auto" or lang in NO_OWN_TRANSLATOR or lang not in TRANSLATOR_SIZES:
+        return "opus-mul"
+    return f"opus-{lang}"
 
 for _code, _mb in TRANSLATOR_SIZES.items():
+    if _code == "mul":
+        CATALOG.append(Model(
+            "opus-mul", "Opus-MT Many languages → English", "gaudi/opus-mt-mul-en-ctranslate2",
+            TRANSLATE, _mb, 1, 2, "no", 0, 3, 5,
+            "Fallback for languages without their own translator and for Auto-detect. Lower quality."))
+        continue
     _src, _dst = LANGUAGES[_code], LANGUAGES[SUBTITLES[_code]]
     CATALOG.append(Model(
         f"opus-{_code}", f"Opus-MT {_src} → {_dst}", f"gaudi/opus-mt-{_code}-{SUBTITLES[_code]}-ctranslate2",

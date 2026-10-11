@@ -148,7 +148,7 @@ class Engine:
         print(f"📥 Whisper '{model}' on {device} ({ctype})")
         self.model_name, self.device = model, device
         self.asr = WhisperModel(model, device=device, compute_type=ctype)
-        self.language = language   # spoken language: "de" or "en"
+        self.language = language   # spoken language code, or "auto"
         self.translators = {}      # model key -> (translator, source spm, target spm)
         # Load (and on first use download) the translator up front
         self._translator(models.translator_key(language), download=True)
@@ -186,7 +186,7 @@ class Engine:
     def transcribe(self, audio):
         """Speech -> (text in the spoken language, language code)."""
         segs, info = self.asr.transcribe(
-            audio, language=self.language,
+            audio, language=None if self.language == "auto" else self.language,
             beam_size=5, vad_filter=True, condition_on_previous_text=False,
             # spelling hints go in as hotwords; only the previous sentence is the prompt
             hotwords=self.glossary or None, initial_prompt=self.context[-200:] or None)
@@ -194,10 +194,16 @@ class Engine:
         return ("" if echoes_terms(text, self.terms) else text), info.language
 
     def translate(self, text, lang):
-        key = models.translator_key(lang if lang in models.LANGUAGES else self.language)
+        if self.language == "auto" and lang == "en":
+            return self.vocab.finish(text)   # Auto-detect subtitles are English: nothing to translate
+        if lang not in models.LANGUAGES:
+            lang = self.language
+        key = models.translator_key(lang)
         t = self._translator(key)
+        if t is None and key != "opus-en":
+            t = self._translator("opus-mul")   # any language -> English
         if t is None:
-            return f"[{lang}] {text}"   # the translator for this direction isn't installed yet
+            return f"[{lang}] {text}"   # no translator for this language installed yet
         mt, sp_src, sp_tgt = t
         text, slots = self.vocab.protect(text)
         toks = sp_src.encode(text, out_type=str)[:400] + ["</s>"]

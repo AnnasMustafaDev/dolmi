@@ -195,10 +195,11 @@ class CloudEngine(live_subs.Engine):
         return heard, (self.translate(heard, self.language) if heard else "")
 
     def _gemini(self, audio):
-        src = models.LANGUAGES[self.language]
-        dst = models.LANGUAGES[models.SUBTITLES[self.language]]
-        prompt = (f"This is speech from a live meeting, spoken in {src}; it may end mid-sentence. Transcribe "
-                  f"exactly what is said, in {src}, then translate it into natural {dst}. Return JSON with the "
+        src = models.LANGUAGES.get(self.language)   # None for Auto-detect
+        dst = models.LANGUAGES[models.SUBTITLES.get(self.language, "en")]
+        spoken = f"spoken in {src}" if src else "in any language"
+        prompt = (f"This is speech from a live meeting, {spoken}; it may end mid-sentence. Transcribe "
+                  f"exactly what is said, in the language it is spoken in, then translate it into natural {dst}. Return JSON with the "
                   f'keys "heard" and "translation". If there is no clear speech (silence, music, noise), '
                   f"return empty strings; never invent words.")
         if self.glossary:
@@ -233,12 +234,15 @@ class CloudEngine(live_subs.Engine):
         client = openai.OpenAI(api_key=self.key, timeout=30.0)
         r = client.audio.transcriptions.create(
             model=self.model_name, file=("sentence.wav", wav_bytes(audio), "audio/wav"),
-            language=self.language, prompt=self.glossary or openai.NOT_GIVEN)
+            language=openai.NOT_GIVEN if self.language == "auto" else self.language,
+            prompt=self.glossary or openai.NOT_GIVEN)
         return r.text
 
     def _cloudflare(self, audio):
         account, _, token = self.key.partition(":")
-        payload = {"audio": base64.b64encode(wav_bytes(audio)).decode(), "language": self.language}
+        payload = {"audio": base64.b64encode(wav_bytes(audio)).decode()}
+        if self.language != "auto":
+            payload["language"] = self.language
         if self.glossary:
             payload["initial_prompt"] = self.glossary
         data = _post_json(f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/run/{self.model_name}",

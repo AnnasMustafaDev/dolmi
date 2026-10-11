@@ -4,7 +4,7 @@
 
 > This is the **macOS** version. The Windows version lives in the repository root; both share the same UI, engine and features.
 
-Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live translation in a floating subtitle bar: German speech in English, or English speech in German. Speech recognition and translation run locally and your audio never leaves your Mac; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
+Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live translation in a floating subtitle bar: English subtitles for German and 26 more languages (or Auto-detect), and German subtitles for English speech. Speech recognition and translation run locally and your audio never leaves your Mac; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
 > macOS 14.2 Sonoma or later, Apple Silicon. MIT licence. [Download the `.dmg`](https://github.com/Zehnix/dolmi/releases/latest), or build it yourself with one command (below).
 
@@ -23,7 +23,7 @@ Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, a
 - **Live subtitles** in a draggable, resizable, always-on-top bar, with the original line underneath, adjustable text size and opacity.
 - **Invisible mode** — the window and subtitle bar are hidden from screen shares and recordings, and Dolmi leaves the Dock and ⌘-Tab. `⌃⌥⇧D` (Control-Option-Shift-D) turns it off from anywhere.
 - **Any meeting app or browser** — Dolmi captures system audio with a Core Audio process tap, so you still hear the meeting and need no virtual audio cable (no BlackHole). A microphone works too.
-- **German ↔ English** — German speech gets English subtitles (the default), English speech gets German subtitles.
+- **27+ languages** — German (the default) and 26 more languages, or Auto-detect, get English subtitles; English speech gets German subtitles.
 - **You choose the models** — *Settings → This Mac & speech models* detects your chip, RAM and CPU cores, says how well each Whisper model runs on *this* Mac, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
 - **Cloud captions (optional)** — *Settings → Captions by*: Gemini (hears and translates in one request), OpenAI or Cloudflare, with your own key. The live line follows the speaker about 1–1.5 s behind; the finished sentence lands ~1.5 s after they stop. Off by default — captions stay on the device.
 - **Meetings** — every session saved as Markdown + SRT in both languages. Copy, archive, delete, or summarize any meeting.
@@ -76,7 +76,7 @@ To uninstall, move Dolmi.app to the Bin. Your transcripts (`~/Documents/Dolmi`),
 | Whisper Large v3 Turbo | 1.6 GB | Near-best accuracy; only Pro/Max/Ultra chips keep up live |
 | Whisper Large v3 | 3.1 GB | Highest accuracy; too slow for live use on a Mac |
 
-Whisper runs on the CPU cores (CTranslate2 with Apple Accelerate, int8); there is no GPU path on the Mac. Tiny and Base are there for older Macs. Each direction also needs a ~150 MB translator (German → English, English → German).
+Whisper runs on the CPU cores (CTranslate2 with Apple Accelerate, int8); there is no GPU path on the Mac. Tiny and Base are there for older Macs. Each spoken language also needs a ~150 MB translator.
 
 ### Run from source
 

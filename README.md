@@ -4,9 +4,9 @@
 
 Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live translation in a floating subtitle bar: German speech in English, or English speech in German. Speech recognition and translation run locally and your audio never leaves your PC; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
-> **On a Mac?** See [Mac/](Mac/README.md) — the same app for macOS 14.2+ (Apple Silicon).
+> **On a Mac?** [Download the `.dmg`](https://github.com/Zehnix/dolmi/releases/latest): the same app for macOS 14.2+ (Apple Silicon). Details in [Mac/](Mac/README.md).
 
-> Windows 10 (2004+) / 11. MIT licence. [Download the installer](https://github.com/AnnasMustafaDev/dolmi/releases) — no admin rights needed.
+> Windows 10 (2004+) / 11. MIT licence. [Download the installer](https://github.com/Zehnix/dolmi/releases) — no admin rights needed.
 
 ![Dolmi live view: German on the left, English on the right](assets/screenshots/live.png)
 
@@ -58,7 +58,7 @@ Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack,
 
 ## Install
 
-1. Download **`Dolmi-Setup-x.y.z.exe`** from [Releases](https://github.com/AnnasMustafaDev/dolmi/releases).
+1. Download **`Dolmi-Setup-x.y.z.exe`** from [Releases](https://github.com/Zehnix/dolmi/releases).
 2. Run it. No admin rights are needed: it installs for your user, and offers "all users" if you prefer.
 3. Optional during setup: tick **GPU speech recognition** if you have an NVIDIA card (downloads about 1.3 GB). Dolmi then uses Whisper Large v3 Turbo on the GPU.
 4. Open Dolmi. In *Settings → This PC & speech models*, download the model you want — or just press **▶ Start** and Dolmi offers the one that suits your PC. Models download once and then work offline.
@@ -121,8 +121,8 @@ Every installer is built by GitHub Actions from a tagged commit in this reposito
 
 | Role | Who |
 |---|---|
-| Committers and reviewers | [Annas Mustafa](https://github.com/AnnasMustafaDev) |
-| Approvers (approve each signed release) | [Annas Mustafa](https://github.com/AnnasMustafaDev) |
+| Committers and reviewers | [Zehnix](https://github.com/Zehnix) |
+| Approvers (approve each signed release) | [Zehnix](https://github.com/Zehnix) |
 
 Dolmi never transfers information to other networked systems unless the user asks for it, as described in the [privacy policy](PRIVACY.md).
 

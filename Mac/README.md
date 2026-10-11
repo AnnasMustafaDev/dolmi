@@ -6,7 +6,7 @@
 
 Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, anything), transcribes the speech, and shows a live translation in a floating subtitle bar: German speech in English, or English speech in German. Speech recognition and translation run locally and your audio never leaves your Mac; only the optional Assistant sends text to the AI provider you choose ([privacy policy](PRIVACY.md)).
 
-> macOS 14.2 Sonoma or later, Apple Silicon. MIT licence. Build `Dolmi.app` and a `.dmg` with one command (below).
+> macOS 14.2 Sonoma or later, Apple Silicon. MIT licence. [Download the `.dmg`](https://github.com/Zehnix/dolmi/releases/latest), or build it yourself with one command (below).
 
 ![Dolmi live view: German on the left, English on the right](assets/screenshots/live.png)
 
@@ -58,10 +58,12 @@ Dolmi listens to whatever your Mac plays (Teams, Zoom, Meet, Slack, a browser, a
 
 ## Install
 
-1. Build it (once): `./packaging/build.sh` → `dist/Dolmi-x.y.z.dmg` (needs Xcode Command Line Tools: `xcode-select --install`, and `brew install python@3.12`).
-2. Open the `.dmg` and drag **Dolmi** to **Applications**.
-3. The app is signed with a local certificate, not notarized, so the first time **right-click Dolmi → Open → Open** (or *System Settings → Privacy & Security → Open Anyway*).
-4. Press **▶ Start**. macOS asks once to let Dolmi record **System Audio** — allow it (*System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only*). If Start needs a model you don't have, Dolmi shows what it needs and how big it is first. Models download once and then work offline.
+1. Download **`Dolmi-x.y.z-macOS.dmg`** from the [latest release](https://github.com/Zehnix/dolmi/releases/latest).
+2. Open it and drag **Dolmi** to **Applications**.
+3. Dolmi isn't notarized by Apple yet, so the first time macOS won't open it. Go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
+4. Press **▶ Start**. macOS asks once to let Dolmi record **System Audio**: allow it (*System Settings → Privacy & Security → Screen & System Audio Recording → System Audio Recording Only*). If Start needs a model you don't have, Dolmi shows what it needs and how big it is first. Models download once and then work offline.
+
+**Build it yourself:** `./packaging/build.sh` → `dist/Dolmi-x.y.z.dmg` (needs Xcode Command Line Tools: `xcode-select --install`, and `brew install python@3.12`). Local builds are signed with a fixed local certificate, so rebuilds keep the audio permission.
 
 To uninstall, move Dolmi.app to the Bin. Your transcripts (`~/Documents/Dolmi`), settings (`~/Library/Application Support/Dolmi`) and models (`~/.cache/huggingface`) are kept.
 

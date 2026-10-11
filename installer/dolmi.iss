@@ -4,7 +4,8 @@
   #define MyAppVersion "0.0.0-dev"
 #endif
 #define MyAppName "Dolmi"
-#define MyAppURL "https://github.com/AnnasMustafaDev/dolmi"
+#define MyAppURL "https://dolmi.zehnix.co"
+#define MyRepoURL "https://github.com/Zehnix/dolmi"
 ; Launcher: the bundled, PSF-signed pythonw.exe (no console window) running the app.
 ; Its argument is written inline as """{app}\app\src\main.py""" ("" is a literal quote in Inno).
 #define Launcher "{app}\runtime\pythonw.exe"
@@ -16,11 +17,11 @@ AppId={{01C6145B-761B-4EB9-A11D-36BEE004B479}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
-AppPublisher=Annas Mustafa
+AppPublisher=Zehnix
 AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}/issues
-AppUpdatesURL={#MyAppURL}/releases
-AppCopyright=Copyright (c) 2026 Annas Mustafa. MIT licence.
+AppSupportURL={#MyRepoURL}/issues
+AppUpdatesURL={#MyRepoURL}/releases
+AppCopyright=Copyright (c) 2026 Zehnix. MIT licence.
 
 ; {autopf} = %LOCALAPPDATA%\Programs for per-user installs, Program Files for all users
 DefaultDirName={autopf}\{#MyAppName}

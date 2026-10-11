@@ -44,4 +44,4 @@ If you tick **GPU speech recognition** in the installer, it downloads NVIDIA's C
 
 ## Contact
 
-Questions about privacy: [open an issue](https://github.com/AnnasMustafaDev/dolmi/issues).
+Questions about privacy: [open an issue](https://github.com/Zehnix/dolmi/issues).

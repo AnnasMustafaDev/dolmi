@@ -40,4 +40,4 @@ When you press **Download** in *Settings → This Mac & speech models*, or agree
 
 ## Contact
 
-Questions about privacy: [open an issue](https://github.com/AnnasMustafaDev/dolmi/issues).
+Questions about privacy: [open an issue](https://github.com/Zehnix/dolmi/issues).

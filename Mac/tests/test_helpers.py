@@ -248,3 +248,19 @@ def test_cloud_finals_show_in_spoken_order_even_when_replies_arrive_out_of_order
     time.sleep(0.8)
     finals = [a for kind, a, b in list(ui_q.queue) if kind == "final"]
     assert finals == ["Satz 1", "Satz 2", "Satz 3"] and tr.rows == finals
+
+def test_english_speech_detected_when_another_language_is_set():
+    """German selected, someone speaks English: kept as English, not forced into German."""
+    from types import SimpleNamespace as NS
+    calls = []
+    def fake_asr(audio, language):
+        calls.append(language)
+        detected = language or audio   # audio stands in for what Whisper would detect
+        return [NS(text="Hello everyone")], NS(language=detected)
+    e = object.__new__(m.Engine)
+    e.language, e.terms, e._asr = "de", set(), fake_asr
+    e.vocab = NS(finish=lambda text, slots=None: text)
+    assert e.transcribe("en") == ("Hello everyone", "en") and calls == [None]
+    assert e.translate("Hello everyone", "en") == "Hello everyone"
+    calls.clear()
+    assert e.transcribe("nl")[1] == "de" and calls == [None, "de"]   # misdetection -> forced German

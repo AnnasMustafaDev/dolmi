@@ -184,18 +184,29 @@ class Engine:
         return self.translators[key]
 
     def transcribe(self, audio):
-        """Speech -> (text in the spoken language, language code)."""
-        segs, info = self.asr.transcribe(
-            audio, language=None if self.language == "auto" else self.language,
-            beam_size=5, vad_filter=True, condition_on_previous_text=False,
-            # spelling hints go in as hotwords; only the previous sentence is the prompt
-            hotwords=self.glossary or None, initial_prompt=self.context[-200:] or None)
+        """Speech -> (text in the spoken language, language code).
+
+        People switch to English mid-meeting, so a non-English setting still lets Whisper
+        detect: the chosen language or English is kept; anything else is a misdetection
+        (usually a short clip) and is transcribed again in the chosen language."""
+        mixed = self.language not in ("auto", "en")
+        segs, info = self._asr(audio, None if self.language == "auto" or mixed else self.language)
+        if mixed and info.language not in (self.language, "en"):
+            segs, info = self._asr(audio, self.language)
         text = collapse_repeats(" ".join(s.text.strip() for s in segs).strip())
         return ("" if echoes_terms(text, self.terms) else text), info.language
 
+    def _asr(self, audio, language):
+        segs, info = self.asr.transcribe(
+            audio, language=language,
+            beam_size=5, vad_filter=True, condition_on_previous_text=False,
+            # spelling hints go in as hotwords; only the previous sentence is the prompt
+            hotwords=self.glossary or None, initial_prompt=self.context[-200:] or None)
+        return list(segs), info
+
     def translate(self, text, lang):
-        if self.language == "auto" and lang == "en":
-            return self.vocab.finish(text)   # Auto-detect subtitles are English: nothing to translate
+        if lang == "en" and self.language != "en":
+            return self.vocab.finish(text)   # English speech, English subtitles: nothing to translate
         if lang not in models.LANGUAGES:
             lang = self.language
         key = models.translator_key(lang)

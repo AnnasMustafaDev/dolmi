@@ -18,7 +18,7 @@
   --bg:#F2ECDF;--panel:#FBF7EF;--panel2:#F5EFE2;--card:#FFFFFF;
   --ink:#241F17;--mute:#6A6250;--faint:#9A917B;--line:rgba(40,34,22,.10);--line-dash:rgba(40,34,22,.14);
   --ac:#0E8F7E;--ac-ink:#0A6E61;--on-ac:#F4FBF8;--ac-soft:rgba(14,143,126,.10);
-  --src:#B06A2C;--src-soft:rgba(176,106,44,.10);
+  --danger:#B42318;--src:#B06A2C;--src-soft:rgba(176,106,44,.10);
   --sh:0 18px 40px -22px rgba(60,48,24,.45),0 1px 0 rgba(255,255,255,.7) inset;
   --sh-sm:0 10px 24px -16px rgba(60,48,24,.4);
 }
@@ -27,7 +27,7 @@
   --bg:#15140E;--panel:#1F1D15;--panel2:#262318;--card:#211F17;
   --ink:#F2ECDE;--mute:#ABA28C;--faint:#776F59;--line:rgba(255,255,255,.08);--line-dash:rgba(255,255,255,.11);
   --ac:#2FB9A4;--ac-ink:#5ED8C4;--on-ac:#06201C;--ac-soft:rgba(47,185,164,.13);
-  --src:#E0A05C;--src-soft:rgba(224,160,92,.12);
+  --danger:#F97066;--src:#E0A05C;--src-soft:rgba(224,160,92,.12);
   --sh:0 22px 46px -24px rgba(0,0,0,.75),0 1px 0 rgba(255,255,255,.05) inset;
   --sh-sm:0 14px 30px -20px rgba(0,0,0,.7);
 }
@@ -181,6 +181,18 @@ textarea.field{width:100%;font-family:var(--mono);line-height:1.7;resize:vertica
 /* onboarding */
 .scrim{position:fixed;inset:0;background:rgba(20,16,8,.4);backdrop-filter:blur(12px);display:grid;place-items:center;padding:20px;z-index:50}
 .scrim[hidden]{display:none}
+.cfm{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:24px;box-shadow:var(--sh);padding:26px;display:flex;flex-direction:column;gap:14px}
+.cfm .ci{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--src-soft);color:var(--danger)}.cfm .ci svg{width:22px;height:22px}
+.cfm h3{font-size:22px;line-height:1.2}.cfm p{color:var(--mute);font-size:14px;line-height:1.55}
+.cfm .cl{max-height:140px;overflow:auto;font-family:var(--mono);font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:3px}
+.cfm .row2{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.btn.danger{background:var(--danger);color:#fff}.btn.danger:hover{filter:brightness(1.08)}
+.rowc{display:flex;gap:10px;align-items:flex-start}.rowc .row{flex:1;min-width:0}
+.ck{flex:none;width:20px;height:20px;margin-top:15px;border-radius:6px;border:1.5px solid var(--line);background:var(--panel);display:grid;place-items:center;color:transparent;transition:.15s;cursor:pointer}
+.ck svg{width:14px;height:14px}.ck.on{background:var(--ac);border-color:var(--ac);color:var(--on-ac)}
+.rowc:not(.sel) .ck{opacity:.55}.rowc:hover .ck{opacity:1}
+.selbar{display:flex;align-items:center;gap:10px;padding:8px 10px 10px;font-size:12.5px;color:var(--mute);border-bottom:1px solid var(--line);margin-bottom:6px}
+.selbar b{color:var(--ink)}.selbar button{color:var(--ac-ink);font-weight:600}.selbar .sp{flex:1}
 .onb{width:min(540px,100%);background:var(--panel);border:1px solid var(--line);border-radius:30px;box-shadow:var(--sh);padding:30px;position:relative}
 .steps{display:flex;gap:6px;margin-bottom:22px}
 .steps i{flex:1;height:4px;border-radius:2px;background:var(--line-dash);transition:.3s}
@@ -518,7 +530,7 @@ async function openChat(id){
   currentMsgs=await b.open_chat(id); renderChat(currentMsgs);
 }
 $('#newChat').onclick=async()=>{ const b=bridge(); if(b) await b.new_chat(); currentChat=null; $$('#aList .row').forEach(r=>r.classList.remove('a')); asrIdle('New chat — ask about the meeting below.'); $('#askInput').focus(); };
-$('#delChat').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Open a chat first.'); return; } if(!confirm('Delete this chat permanently?')) return; await b.delete_chat(currentChat); currentChat=null; currentMsgs=[]; asrIdle('Chat deleted.'); loadChats(); };
+$('#delChat').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Open a chat first.'); return; } if(!await askConfirm({title:'Delete this chat?',body:"The questions and answers in this chat are removed from this PC. This can't be undone."})) return; await b.delete_chat(currentChat); currentChat=null; currentMsgs=[]; asrIdle('Chat deleted.'); loadChats(); };
 let chatT; $('#chatSearch').oninput=()=>{ clearTimeout(chatT); chatT=setTimeout(loadChats,250); };
 $('#askForm').onsubmit=e=>{ e.preventDefault(); const v=$('#askInput').value.trim(); if(!v) return; $('#askInput').value=''; asrYou(v); const b=bridge(); if(b) b.ask(v); else { asrStart('demo'); asrChunk('demo','The assistant answers here when running in the app.'); } };
 
@@ -542,10 +554,45 @@ async function loadMeetings(){
   const items=await b.list_meetings(mArch);
   if(!items.length){ list.innerHTML='<div style="padding:16px;color:var(--faint)">'+(mArch?'No archived meetings.':'No meetings yet.')+'</div>'; currentPairs=[]; $('#mDetail').innerHTML='<div style="margin:auto;color:var(--faint)">Nothing saved yet.</div>'; currentMeeting=null; return; }
   const keep=items.some(m=>m.name===currentMeeting)?currentMeeting:items[0].name;
-  list.innerHTML=items.map(m=>`<button class="row${m.name===keep?' a':''}" data-n="${esc(m.name)}"><span class="t">${esc(m.day)} · ${esc(m.time)} · ${m.lines} lines</span><b>${esc(m.day)} ${esc(m.time)}</b><span>${esc(m.name)}</span></button>`).join('');
-  list.querySelectorAll('.row').forEach(r=>r.onclick=()=>{ list.querySelectorAll('.row').forEach(x=>x.classList.remove('a')); r.classList.add('a'); openMeeting(r.dataset.n); });
+  mItems=items; mSel=new Set([...mSel].filter(n=>items.some(m=>m.name===n)));
+  renderMeetingList(keep);
   openMeeting(keep);
 }
+/* meeting list with checkboxes: tick several, then Archive/Delete act on all of them */
+let mItems=[],mSel=new Set();
+function renderMeetingList(active){
+  const list=$('#mList'), n=mSel.size;
+  const bar=`<div class="selbar">${n?`<b>${n} selected</b>`:'Tick meetings to archive or delete several'}<span class="sp"></span>${n<mItems.length?'<button id="mSelAll">Select all</button>':''}${n?'<button id="mSelNone">Clear</button>':''}</div>`;
+  list.innerHTML=bar+mItems.map(m=>{ const on=mSel.has(m.name); return `<div class="rowc${on?' sel':''}"><span class="ck${on?' on':''}" role="checkbox" aria-checked="${on}" tabindex="0" data-n="${esc(m.name)}" title="Select"><i data-lucide="check"></i></span><button class="row${m.name===active?' a':''}" data-n="${esc(m.name)}"><span class="t">${esc(m.day)} · ${esc(m.time)} · ${m.lines} lines</span><b>${esc(m.day)} ${esc(m.time)}</b><span>${esc(m.name)}</span></button></div>`; }).join('');
+  icons();
+  list.querySelectorAll('.row').forEach(r=>r.onclick=()=>{ list.querySelectorAll('.row').forEach(x=>x.classList.remove('a')); r.classList.add('a'); openMeeting(r.dataset.n); });
+  const tick=c=>{ const k=c.dataset.n; mSel.has(k)?mSel.delete(k):mSel.add(k); renderMeetingList(currentMeeting); };
+  list.querySelectorAll('.ck').forEach(c=>{ c.onclick=()=>tick(c); c.onkeydown=e=>{ if(e.key===' '||e.key==='Enter'){ e.preventDefault(); tick(c); } }; });
+  const all=$('#mSelAll'), none=$('#mSelNone');
+  if(all) all.onclick=()=>{ mItems.forEach(m=>mSel.add(m.name)); renderMeetingList(currentMeeting); };
+  if(none) none.onclick=()=>{ mSel.clear(); renderMeetingList(currentMeeting); };
+  $('#mDelete').lastChild.textContent=n>1?`Delete ${n}`:'Delete';
+}
+/* the ticked meetings, or else the open one */
+const mTargets=()=>mSel.size?[...mSel]:(currentMeeting?[currentMeeting]:[]);
+
+/* in-app confirmation dialog (the WebView's confirm() is a plain system box) */
+function askConfirm({title,body,ok='Delete',items=[]}){
+  return new Promise(res=>{
+    let s=document.getElementById('cfmModal');
+    if(!s){ s=document.createElement('div'); s.id='cfmModal'; s.className='scrim'; document.body.append(s); }
+    s.innerHTML=`<div class="cfm" role="alertdialog" aria-modal="true" aria-labelledby="cfmT"><div class="ci"><i data-lucide="trash-2"></i></div><h3 id="cfmT">${esc(title)}</h3><p>${esc(body)}</p>${items.length?`<div class="cl">${items.slice(0,12).map(i=>`<span>${esc(i)}</span>`).join('')}${items.length>12?`<span>… and ${items.length-12} more</span>`:''}</div>`:''}<div class="row2"><button class="btn ghost" id="cfmNo">Cancel</button><button class="btn danger" id="cfmOk">${esc(ok)}</button></div></div>`;
+    icons(); s.hidden=false;
+    const key=e=>{ if(e.key==='Escape'){ e.stopPropagation(); done(false); } };
+    const done=v=>{ s.hidden=true; document.removeEventListener('keydown',key,true); res(v); };
+    document.addEventListener('keydown',key,true);
+    s.onclick=e=>{ if(e.target===s) done(false); };
+    s.querySelector('#cfmNo').onclick=()=>done(false);
+    s.querySelector('#cfmOk').onclick=()=>done(true);
+    s.querySelector('#cfmNo').focus();
+  });
+}
+
 async function openMeeting(name){
   const b=bridge(); if(!b) return; currentMeeting=name;
   const pairs=await b.read_meeting(name); currentPairs=pairs;
@@ -635,11 +682,17 @@ async function copyText(t){ const b=bridge(); let ok=false; if(b){ try{ ok=await
 function meetingText(){ return currentPairs.map(p=>`[${p.ts}] ${p.en}\n        ${p.de}`).join('\n\n'); }
 function chatText(){ return currentMsgs.map(m=>`You (${m.when}): ${m.q}\nAssistant: ${m.err||m.a}`).join('\n\n'); }
 function archLabel(btn,arch){ const s=btn.querySelector(':scope > span:last-child'); if(s) s.textContent=arch?'Unarchive':'Archive'; }
-$('#mArchView').onclick=()=>{ mArch=!mArch; $('#mArchView').classList.toggle('on',mArch); archLabel($('#mArchive'),mArch); currentMeeting=null; loadMeetings(); };
+$('#mArchView').onclick=()=>{ mArch=!mArch; mSel.clear(); $('#mArchView').classList.toggle('on',mArch); archLabel($('#mArchive'),mArch); currentMeeting=null; loadMeetings(); };
 $('#mCopy').onclick=()=>{ if(!currentPairs.length){ toast('Open a meeting first.'); return; } copyText(meetingText()); };
 $('#mExport').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } const r=await b.export_meeting(currentMeeting); if(r.ok) toast('Exported: '+r.path); else if(!r.cancelled) toast(r.message||'Could not export'); };
-$('#mArchive').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } await b.archive_meeting(currentMeeting,!mArch); toast(mArch?'Meeting restored':'Meeting archived'); currentMeeting=null; loadMeetings(); };
-$('#mDelete').onclick=async()=>{ const b=bridge(); if(!b||!currentMeeting){ toast('Open a meeting first.'); return; } if(!confirm('Delete this meeting transcript permanently?')) return; await b.delete_meeting(currentMeeting); toast('Meeting deleted'); currentMeeting=null; loadMeetings(); };
+$('#mArchive').onclick=async()=>{ const b=bridge(), t=mTargets(); if(!b||!t.length){ toast('Open or tick a meeting first.'); return; }
+  for(const n of t) await b.archive_meeting(n,!mArch);
+  const w=t.length>1?`${t.length} meetings`:'Meeting'; toast(mArch?`${w} restored`:`${w} archived`); mSel.clear(); currentMeeting=null; loadMeetings(); };
+$('#mDelete').onclick=async()=>{ const b=bridge(), t=mTargets(); if(!b||!t.length){ toast('Open or tick a meeting first.'); return; }
+  const many=t.length>1, label=n=>{ const m=mItems.find(x=>x.name===n); return m?`${m.day} ${m.time} · ${m.lines} lines`:n; };
+  if(!await askConfirm({title:many?`Delete ${t.length} meetings?`:'Delete this meeting?', body:"The transcript and subtitle files are removed from this PC. This can't be undone.", ok:many?`Delete ${t.length}`:'Delete', items:t.map(label)})) return;
+  for(const n of t) await b.delete_meeting(n);
+  toast(many?`${t.length} meetings deleted`:'Meeting deleted'); mSel.clear(); currentMeeting=null; loadMeetings(); };
 $('#aArchView').onclick=()=>{ aArch=!aArch; $('#aArchView').classList.toggle('on',aArch); archLabel($('#aArchive'),aArch); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Archived chats — open one to read it.':'Ask about the meeting below.'); loadChats(); };
 $('#aCopy').onclick=()=>{ if(!currentMsgs.length){ toast('Open a chat first.'); return; } copyText(chatText()); };
 $('#aArchive').onclick=async()=>{ const b=bridge(); if(!b||currentChat==null){ toast('Open a chat first.'); return; } await b.archive_chat(currentChat,!aArch); if(!aArch) await b.new_chat(); toast(aArch?'Chat restored':'Chat archived'); currentChat=null; currentMsgs=[]; asrIdle(aArch?'Chat restored.':'Chat archived.'); loadChats(); };

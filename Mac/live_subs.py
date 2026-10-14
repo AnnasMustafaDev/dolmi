@@ -51,6 +51,37 @@ def output_devices():
     import sounddevice as sd
     return [d["name"] for d in sd.query_devices() if d["max_input_channels"] > 0]
 
+def input_devices():
+    """Names of microphones (and other inputs) Dolmi can listen to for in-person meetings."""
+    import sounddevice as sd
+    return [d["name"] for d in sd.query_devices() if d["max_input_channels"] > 0]
+
+def _sd_capture(device, out_q, stop, feed):
+    """Stream one input device by name (None = the Mac's default input) until stop is set."""
+    import sounddevice as sd
+    inputs = [d for d in sd.query_devices() if d["max_input_channels"] > 0]
+    info = next((d for d in inputs if device and device in d["name"]), None)
+    if info is None and device is None:
+        default = sd.default.device[0]
+        info = sd.query_devices(default) if default is not None and default >= 0 else (inputs[0] if inputs else None)
+    if info is None:
+        raise RuntimeError(f"input '{device}' not found - pick another in Settings" if device else "no microphone found")
+    rate, ch = int(info["default_samplerate"]), max(1, min(int(info["max_input_channels"]), 2))
+    print(f"🎧 Capturing: {info['name']}  ({rate} Hz, {ch} ch)")
+    with sd.InputStream(device=info["index"], channels=ch, samplerate=rate, dtype="float32",
+                        blocksize=int(rate * 0.1),
+                        callback=lambda data, *_: feed(data.mean(axis=1).copy(), rate)):
+        stop.wait()
+
+def mic_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_level=None):
+    """Capture a microphone (people in the room); the Mac's default input if device is None."""
+    def feed(a, rate):
+        idx = np.linspace(0, len(a) - 1, int(len(a) * SR / rate)).astype(np.int64)
+        out_q.put(a[idx])
+        if on_level:
+            on_level(float(np.sqrt(np.mean(a * a))) if len(a) else 0.0)
+    _sd_capture(device or None, out_q, stop, feed)
+
 def loopback_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_level=None):
     """Capture everything the Mac plays (device None) or one input device by name.
     on_level(rms) is called about 10x a second so the UI can show that audio is arriving."""
@@ -62,17 +93,7 @@ def loopback_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_l
             on_level(float(np.sqrt(np.mean(a * a))) if len(a) else 0.0)
 
     if device:
-        import sounddevice as sd
-        info = next((d for d in sd.query_devices() if d["max_input_channels"] > 0 and device in d["name"]), None)
-        if info is None:
-            raise RuntimeError(f"input '{device}' not found - pick another in Settings")
-        rate, ch = int(info["default_samplerate"]), min(int(info["max_input_channels"]), 2)
-        print(f"🎧 Capturing: {info['name']}  ({rate} Hz, {ch} ch)")
-        with sd.InputStream(device=info["index"], channels=ch, samplerate=rate, dtype="float32",
-                            blocksize=int(rate * 0.1),
-                            callback=lambda data, *_: feed(data.mean(axis=1).copy(), rate)):
-            stop.wait()
-        return
+        return _sd_capture(device, out_q, stop, feed)
 
     import subprocess
     proc = subprocess.Popen([str(audio_helper())], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

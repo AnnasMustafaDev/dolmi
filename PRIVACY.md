@@ -1,6 +1,6 @@
 # Dolmi privacy policy
 
-Dolmi has no account, no telemetry and no analytics. **Speech recognition and translation run on your PC. Your audio never leaves it.**
+Dolmi has no account, no telemetry and no analytics. **Speech recognition and translation run on your PC. Your audio never leaves it.** That includes the microphone, when you switch the audio source to Microphone for in-person meetings: it is only recorded while you are captioning, and stays on this device unless you turn on cloud captions (below).
 
 Dolmi only uses the network in the cases below. You start each one yourself.
 

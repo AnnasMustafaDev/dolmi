@@ -23,6 +23,7 @@ Dolmi listens to whatever plays through your speakers (Teams, Zoom, Meet, Slack,
 - **Live subtitles** in a draggable, resizable, always-on-top bar, with the original line underneath, adjustable text size and opacity.
 - **Invisible mode** — the window and subtitle bar are hidden from screen shares, recordings and the taskbar. `Ctrl+Alt+Shift+D` turns it off.
 - **Any meeting app or browser** — Dolmi captures system audio (WASAPI loopback), so you still hear the meeting and need no virtual audio cable.
+- **In-person meetings too** — switch the audio source to **Microphone** with one click on the front page or the subtitle bar's corner. Both always show what Dolmi is listening to; pick the mic in *Settings → Audio source*.
 - **27+ languages** — German (the default) and 26 more languages, or Auto-detect, get English subtitles; English speech gets German subtitles.
 - **You choose the models** — *Settings → This PC & speech models* detects your GPU, RAM and CPU, says how well each Whisper model runs on *this* PC, and lets you download, switch or remove them. Nothing large downloads without asking: if Start needs a model you don't have, Dolmi shows what it needs and how big it is first.
 - **Cloud captions (optional)** — *Settings → Captions by*: Gemini (hears and translates in one request), OpenAI or Cloudflare, with your own key. The live line follows the speaker about 1–1.5 s behind; the finished sentence lands ~1.5 s after they stop. Off by default — captions stay on the device.

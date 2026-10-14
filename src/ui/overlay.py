@@ -13,9 +13,14 @@ MIN_W, MIN_H = 360, 110
 class OverlayApi:
     """Exposed to overlay.html. State is private: pywebview exposes public attributes to the page."""
 
-    def __init__(self, on_hide=None):
+    def __init__(self, on_hide=None, on_toggle=None):
         self._window = None
         self._on_hide = on_hide
+        self._on_toggle = on_toggle
+
+    def toggle_source(self):
+        """Corner button: switch between speaker and microphone."""
+        return self._on_toggle() if self._on_toggle else False
 
     def geometry(self):
         """Window size in *logical* pixels — the same units resize() takes and that the page's
@@ -48,8 +53,8 @@ class OverlayApi:
 
 
 class Overlay:
-    def __init__(self, background="#16150F", on_hide=None):
-        self.api = OverlayApi(on_hide)
+    def __init__(self, background="#16150F", on_hide=None, on_toggle=None):
+        self.api = OverlayApi(on_hide, on_toggle)
         self.window = webview.create_window(
             "Dolmi overlay", url=str((WEB / "overlay.html").as_uri()), js_api=self.api,
             width=640, height=200, x=None, y=48, frameless=True, easy_drag=False,

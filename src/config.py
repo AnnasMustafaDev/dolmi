@@ -28,7 +28,7 @@ os.environ["DOLMI_CONFIG"] = str(CONFIG)
 
 DEFAULTS = {
     "model": "auto", "device": "auto", "font": 22, "opacity": 0.88,
-    "show_german": True, "overlay": True, "overlay_geometry": None, "audio_device": "", "language": "de",
+    "show_german": True, "overlay": True, "overlay_geometry": None, "audio_device": "", "audio_source": "speaker", "mic_device": "", "language": "de",
     "mode": "translate", "ai_provider": "claude", "ai_models": {}, "api_keys": {}, "ai_context": "",
     "ai_length": "short", "pro": "",
     "save_transcripts": True, "keep_days": 0, "privacy_seen": False, "data_folder": "",

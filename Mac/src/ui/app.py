@@ -28,11 +28,12 @@ import cloud_speech
 import stealth
 
 VERSION = config.version()
+DEFAULT_SPEAKER = "All Mac audio"   # what "Speaker" listens to when no device is picked
 ICON = config.ROOT / "assets" / "dolmi.png"   # the Dock icon when running from source
 _MEETING_RE = re.compile(r"\*\*(.+?)\*\*\s+(.*?)\s*\n<sub>(.*?)</sub>", re.S)
 # settings the page may change through set_setting (provider, keys and invisible have their own calls)
 SPEECH_SOURCES = ("local", *cloud_speech.PROVIDERS)   # Settings → Captions by
-SETTABLE = {"speech_source", "language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
+SETTABLE = {"speech_source", "mic_device", "language", "show_german", "save_transcripts", "keep_days", "audio_device", "model",
             "overlay", "theme", "ai_length", "ai_context", "opacity", "font"}
 
 
@@ -207,7 +208,8 @@ class Api:
             "modelDefault": assistant.PROVIDERS[self._provider()]["model"],
             "keyHint": assistant.PROVIDERS[self._provider()]["key_hint"],
             "cfAccount": s.get("cf_account", ""),
-            "audioDevice": s["audio_device"], "speechModel": s["model"], "overlay": bool(s.get("overlay")),
+            "audioDevice": s["audio_device"], "audioSource": self._source(), "micDevice": s.get("mic_device", ""),
+            "sourceLabel": self._source_label(), "speechModel": s["model"], "overlay": bool(s.get("overlay")),
             "theme": s.get("theme", "paper"), "listening": bool(self._session),
             "opacity": s.get("opacity", 0.88), "font": s.get("font", 22),
             "barVisible": bool(self._overlay_visible),
@@ -226,6 +228,8 @@ class Api:
             config.save_settings(self._settings)
         if key == "keep_days":
             threading.Thread(target=self._purge_old, daemon=True).start()
+        if key == "mic_device" and self._session and self._source() == "mic" and getattr(self, "_cap_stop", None):
+            self._cap_stop.set()
         if key in ("opacity", "font"):
             self._push_overlay_style()
         if key in ("model", "language", "speech_source") and not self._session:
@@ -352,6 +356,45 @@ class Api:
         except Exception as e:
             return {"ok": False, "message": f"Unexpected error: {e}"}
 
+    # ------------------------------------------------------------------ audio source
+    def _source(self):
+        return "mic" if self._settings.get("audio_source") == "mic" else "speaker"
+
+    def _source_label(self):
+        """What Dolmi is listening to, for the front page and the subtitle bar's corner."""
+        if self._source() == "mic":
+            return {"source": "mic", "device": self._settings.get("mic_device") or "Default microphone"}
+        return {"source": "speaker", "device": self._settings["audio_device"] or DEFAULT_SPEAKER}
+
+    def _push_source(self):
+        lab = self._source_label()
+        self._emit("onSource", lab)
+        self._ov("source", lab["source"], lab["device"])
+
+    def set_source(self, source):
+        """Speaker (meeting audio) or mic (people in the room). Takes effect at once mid-meeting."""
+        if source not in ("speaker", "mic"):
+            return False
+        with self._settings_lock:
+            self._settings["audio_source"] = source
+            config.save_settings(self._settings)
+        cap = getattr(self, "_cap_stop", None)
+        if self._session and cap:
+            cap.set()                      # capture loop reopens on the new source
+        else:
+            self._push_source()
+        return self._source_label()
+
+    def toggle_source(self):
+        return self.set_source("speaker" if self._source() == "mic" else "mic")
+
+    def mic_devices(self):
+        try:
+            return live_subs.input_devices()
+        except Exception as e:
+            print(f"mic_devices failed: {e}")
+            return []
+
     def devices(self):
         try:
             return live_subs.output_devices()
@@ -419,8 +462,18 @@ class Api:
 
         def capture():
             try:
-                live_subs.loopback_stream(audio_q, stop, self._settings["audio_device"] or None,
-                                          on_level=self._on_level)
+                while not stop.is_set():
+                    cap = threading.Event()        # set by stop_listening or a source switch
+                    self._cap_stop = cap
+                    if stop.is_set():
+                        break
+                    self._push_source()
+                    if self._source() == "mic":
+                        live_subs.mic_stream(audio_q, cap, self._settings.get("mic_device") or None,
+                                             on_level=self._on_level)
+                    else:
+                        live_subs.loopback_stream(audio_q, cap, self._settings["audio_device"] or None,
+                                                  on_level=self._on_level)
             except Exception as e:
                 # no audio means no captions: end the session instead of sitting on "Translating"
                 self._emit("onError", f"Can't record audio: {e}")
@@ -442,6 +495,9 @@ class Api:
             s, self._session = self._session, None
         if s and s.get("stop"):
             s["stop"].set()
+        cap = getattr(self, "_cap_stop", None)
+        if cap:
+            cap.set()
         self._level = 0.0
         tr = s.get("transcript") if s else None
         self._emit("onListening", False, tr.md.name if tr and tr.md else "")
@@ -862,13 +918,15 @@ class Api:
     def show_overlay(self):
         if not self._overlay:
             from ui.overlay import Overlay
-            ov = Overlay(background="#16150F", on_hide=self._on_overlay_hidden)
+            ov = Overlay(background="#16150F", on_hide=self._on_overlay_hidden, on_toggle=self.toggle_source)
             self._overlay = ov
 
             def loaded(*_):
                 self._overlay_ready = True
                 self._stealth_overlay()
                 self._push_overlay_style()
+                lab = self._source_label()
+                self._ov("source", lab["source"], lab["device"])
 
             def shown(*_):
                 self._stealth_overlay()

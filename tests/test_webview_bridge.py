@@ -210,5 +210,22 @@ api.missing_models, api._engine = real_missing, engine
 api.use_model("auto")
 check("use_model('auto') restores Auto", config.load_settings()["model"] == "auto")
 
+# 14. audio source: speaker (online meeting) or microphone (in person)
+import threading as _th
+check("set_source rejects unknown sources", api.set_source("radio") is False)
+lab = api.set_source("mic")
+check("set_source('mic') switches, is saved and labelled", lab["source"] == "mic" and bool(lab["device"])
+      and config.load_settings()["audio_source"] == "mic" and api.state()["audioSource"] == "mic")
+check("toggle_source flips back to the speaker", api.toggle_source()["source"] == "speaker"
+      and api.state()["sourceLabel"]["source"] == "speaker")
+check("mic_devices returns a list", isinstance(api.mic_devices(), list), f"{len(api.mic_devices())} mics")
+check("mic_device is settable", api.set_setting("mic_device", "") is True)
+fake_cap, saved = _th.Event(), api._session
+api._session, api._cap_stop = {"token": object(), "stop": _th.Event()}, fake_cap
+api.set_source("mic")
+check("switching mid-meeting reopens capture on the new source", fake_cap.is_set())
+api._session, api._cap_stop = saved, None
+api.set_source("speaker")
+
 print(f"\n{sum(results)}/{len(results)} passed")
 

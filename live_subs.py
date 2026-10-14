@@ -45,22 +45,22 @@ def output_devices():
     finally:
         pa.terminate()
 
-def loopback_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_level=None):
-    """Capture whatever Windows plays on a speaker (WASAPI loopback); default speaker if device is None.
-    on_level(rms) is called about 10x a second so the UI can show that audio is arriving."""
+def input_devices():
+    """Names of microphones Dolmi can listen to (for in-person meetings)."""
     import pyaudiowpatch as pyaudio
     pa = pyaudio.PyAudio()
-    wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
-    spk = pa.get_device_info_by_index(wasapi["defaultOutputDevice"])
-    if device:
-        spk = next((lb for lb in pa.get_loopback_device_info_generator() if device in lb["name"]), spk)
-    if not spk["isLoopbackDevice"]:
-        for lb in pa.get_loopback_device_info_generator():
-            if spk["name"] in lb["name"]:
-                spk = lb
-                break
-    rate, ch = int(spk["defaultSampleRate"]), spk["maxInputChannels"]
-    print(f"🎧 Capturing: {spk['name']}  ({rate} Hz, {ch} ch)")
+    try:
+        wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)["index"]
+        return [d["name"] for d in map(pa.get_device_info_by_index, range(pa.get_device_count()))
+                if d["hostApi"] == wasapi and d["maxInputChannels"] > 0 and not d.get("isLoopbackDevice")]
+    finally:
+        pa.terminate()
+
+def _capture(pa, dev, out_q, stop, on_level):
+    """Stream one PyAudio input device as 16 kHz mono into out_q until stop is set."""
+    import pyaudiowpatch as pyaudio
+    rate, ch = int(dev["defaultSampleRate"]), max(1, min(int(dev["maxInputChannels"]), 2))
+    print(f"🎧 Capturing: {dev['name']}  ({rate} Hz, {ch} ch)")
 
     def cb(data, frames, t, status):
         a = np.frombuffer(data, dtype=np.float32).reshape(-1, ch).mean(axis=1)
@@ -72,11 +72,47 @@ def loopback_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_l
         return (None, pyaudio.paContinue)
 
     s = pa.open(format=pyaudio.paFloat32, channels=ch, rate=rate, input=True,
-                input_device_index=spk["index"], frames_per_buffer=int(rate * 0.1),
+                input_device_index=dev["index"], frames_per_buffer=int(rate * 0.1),
                 stream_callback=cb)
     s.start_stream()
     stop.wait()
-    s.stop_stream(); s.close(); pa.terminate()
+    s.stop_stream(); s.close()
+
+def loopback_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_level=None):
+    """Capture whatever Windows plays on a speaker (WASAPI loopback); default speaker if device is None.
+    on_level(rms) is called about 10x a second so the UI can show that audio is arriving."""
+    import pyaudiowpatch as pyaudio
+    pa = pyaudio.PyAudio()
+    try:
+        wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
+        spk = pa.get_device_info_by_index(wasapi["defaultOutputDevice"])
+        if device:
+            spk = next((lb for lb in pa.get_loopback_device_info_generator() if device in lb["name"]), spk)
+        if not spk["isLoopbackDevice"]:
+            for lb in pa.get_loopback_device_info_generator():
+                if spk["name"] in lb["name"]:
+                    spk = lb
+                    break
+        _capture(pa, spk, out_q, stop, on_level)
+    finally:
+        pa.terminate()
+
+def mic_stream(out_q: queue.Queue, stop: threading.Event, device=None, on_level=None):
+    """Capture a microphone (people in the room); the Windows default microphone if device is None."""
+    import pyaudiowpatch as pyaudio
+    pa = pyaudio.PyAudio()
+    try:
+        wasapi = pa.get_host_api_info_by_type(pyaudio.paWASAPI)
+        mics = [d for d in map(pa.get_device_info_by_index, range(pa.get_device_count()))
+                if d["hostApi"] == wasapi["index"] and d["maxInputChannels"] > 0 and not d.get("isLoopbackDevice")]
+        mic = next((d for d in mics if device and device in d["name"]), None)
+        if mic is None and wasapi["defaultInputDevice"] >= 0:
+            mic = pa.get_device_info_by_index(wasapi["defaultInputDevice"])
+        if mic is None:
+            raise RuntimeError("no microphone found - plug one in, or check Windows Settings > Privacy > Microphone")
+        _capture(pa, mic, out_q, stop, on_level)
+    finally:
+        pa.terminate()
 
 # ---------------------------------------------------------------- engines
 class Vocabulary:

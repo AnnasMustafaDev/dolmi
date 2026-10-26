@@ -573,7 +573,7 @@ class Engine:
         lang = info.language
         if lang == "en" and self.language == "de" and looks_german(text):
             lang = "de"
-        return collapse_repeats(text), lang
+        return strip_ellipses(collapse_repeats(text)), lang
 
     def transcribe_draft(self, audio):
         """A cheap look at the sentence still being spoken: greedy decoding of its last DRAFT_WINDOW s."""
@@ -732,6 +732,18 @@ def collapse_repeats(text: str) -> str:
             pos = len(text)                       # the rest of the line is an unfinished repeat
             break
     return "".join(out) + text[pos:]
+
+_DOTS_TOKEN = re.compile(r"^[.…·\s]+$")
+_DOTS_RUN = re.compile(r"(?:(?<=\s)|^)(?:(?:\.{2,}|…+)(?:\s+|$)){3,}")
+
+def strip_ellipses(text: str) -> str:
+    """Whisper on silence or noise writes '... ... ...': three or more '...' in a row go, and a line that
+    is mostly dots ('', '. . .', '... ... Ja') becomes '' so it is dropped. 'Ja... gut' stays."""
+    tokens = text.split()
+    dots = sum(bool(_DOTS_TOKEN.match(t)) for t in tokens)
+    if not tokens or dots == len(tokens) or (dots >= 2 and dots * 2 >= len(tokens)):
+        return ""
+    return re.sub(r"\s{2,}", " ", _DOTS_RUN.sub(" ", text)).strip()
 
 ECHO_TRUSTED = (0.2, -0.5)   # no_speech_prob below and avg_logprob above: Whisper is sure it heard speech
 

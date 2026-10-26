@@ -920,3 +920,11 @@ def test_three_repeats_or_a_repeated_sentence_still_collapse():
         "Er ist ein sehr guter Mann. Hallo."
     assert m.collapse_repeats("We can hear it somewhere We can hear it somewhere") == "We can hear it somewhere"
     assert m.collapse_repeats("Ja. Ja. Ja.") == "Ja."                       # SEG-14 short loops stay folded
+
+
+def test_a_final_of_only_dots_is_dropped_by_the_engine_filter():
+    e = object.__new__(m.Engine)
+    seg = NS(text=" ... ... ... ", no_speech_prob=0.5, avg_logprob=-1.0, words=None)
+    e.language, e.terms, e.clarify = "de", set(), None
+    e._asr = lambda audio, language, **kw: ([seg], NS(language="de"))
+    assert e.transcribe(np.zeros(SR, np.float32)) == ("", "de")

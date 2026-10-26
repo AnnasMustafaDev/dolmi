@@ -379,7 +379,7 @@ class CloudEngine(live_subs.Engine):
         if self.provider == "gemini":
             return self._gemini(audio)
         heard = self._openai(audio) if self.provider == "openai" else self._cloudflare(audio)
-        heard = live_subs.collapse_repeats(heard.strip())
+        heard = live_subs.strip_ellipses(live_subs.collapse_repeats(heard.strip()))
         return heard, (self.translate(heard, self.language) if heard else "")
 
     def _gemini(self, audio):
@@ -404,7 +404,7 @@ class CloudEngine(live_subs.Engine):
                 self.thinking = {"minimal": "low"}.get(level)
         parts = data["candidates"][0]["content"].get("parts", [])
         out = json.loads("".join(p.get("text", "") for p in parts) or "{}")
-        heard = live_subs.collapse_repeats((out.get("heard") or "").strip())
+        heard = live_subs.strip_ellipses(live_subs.collapse_repeats((out.get("heard") or "").strip()))
         return heard, live_subs.collapse_repeats(self.vocab.enforce(heard, (out.get("translation") or "").strip()))
 
     def _openai(self, audio):

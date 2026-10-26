@@ -53,6 +53,9 @@ DRAFT_MT_LAG = 2.0         # s, a draft whose audio is this far behind the captu
 HOLD_MAX = 4.0             # s, a final without . ? ! waits this long for the next one to join it (0 = off)
 VOICE_HOLD_MAX = 1.5       # s, the same hold while the English voice reads aloud: each held second is a second
                            # of lag on the subtitle and the voice (VOICE-10 probe, GPU: final 4.4 s -> ~2 s)
+FRAGMENT_WORDS = 2         # SEG-17: a final this short without . ? ! is a cut-off fragment ("Und dann", "Die")
+FRAGMENT_HOLD = 2.5        # s, such a fragment waits at least this long to join the next final (even with the
+                           # voice's shorter hold or hold off): alone, its translation has no context
 MT_CONTEXT = True          # translate with the previous line as context (synthetic gold German: chrF +0.4, BLEU +0.8)
 CLOUD_SPLIT, CLOUD_BREATH, CLOUD_MAX = 3.0, 0.2, 6.0   # cloud captions: cut long speech sooner
 CLOUD_MIN = 0.3            # s of speech a cloud utterance needs ("Ja, genau." is ~0.6 s)
@@ -1089,8 +1092,8 @@ anything from another session (streaming.CaptionGuard). Finals are FIFO and neve
                                     drafts pause, nothing is dropped)
   ("error", message, "")            from the cloud engine
 Each final is also written with tr.add(start, end, heard, subtitle, meta=meta).
-A final without . ? ! is held up to HOLD_MAX s and joined with the next final of the same speaker and
-language (one line, one id, start of the first, end of the second); meanwhile its words stay on the
+A final without . ? ! is held up to HOLD_MAX s (a 1-2 word fragment at least FRAGMENT_HOLD s, SEG-17)
+and joined with the next final of the same speaker and language (one line, one id, start of the first, end of the second); meanwhile its words stay on the
 live line as a draft.
 Cloud path: eng.submit(audio, start, end, ui_q, tr, meta={"speaker", "speaker_conf", "overlap"}) and
 eng.draft(audio, ui_q, meta={"start", "end"}); the engine emits the same shapes and numbers its
@@ -1413,6 +1416,14 @@ def _for_mt(eng, de):
     return tidy_fillers(de) if getattr(eng, "tidy_fillers", True) else de
 
 
+def hold_window(de: str, hold: float) -> float:
+    """How long a final waits for the next one (0 = emit now). Whole sentences never wait; a 1-2 word
+    fragment waits at least FRAGMENT_HOLD; any other unfinished line waits `hold` (HOLD_MAX/VOICE_HOLD_MAX)."""
+    if ends_sentence(de):
+        return 0.0
+    return max(hold, FRAGMENT_HOLD) if len(de.split()) <= FRAGMENT_WORDS else hold
+
+
 def _translate(eng, de, lang, last):
     """The subtitle for a final: with the previous line as context when MT_CONTEXT is on."""
     de = _for_mt(eng, de)
@@ -1529,7 +1540,10 @@ def _asr_loop(eng, jobs, busy, seg, ui_q, tr, stop, clock, drop, speaker, tag=No
             drop("error", line["start"], line["end"], line["de"])
 
     def due():
-        return clock() - held["end"] >= hold or (seg.samples - held["upto"]) / SR >= hold
+        wait, first = held["window"], seg.first
+        if held["fragment"] and first is not None and (first - held["upto"]) / SR <= wait:
+            return False                         # SEG-17: the next sentence began in time, the fragment joins it
+        return clock() - held["end"] >= wait or (seg.samples - held["upto"]) / SR >= wait
 
     try:
         while True:
@@ -1606,7 +1620,7 @@ def _asr_loop(eng, jobs, busy, seg, ui_q, tr, stop, clock, drop, speaker, tag=No
                             "unsure": _unsure(eng)}
                     if held:
                         same = None in (spk, held["speaker"]) or spk == held["speaker"]
-                        if same and held["lang"] == lang and start - held["end"] <= hold:
+                        if same and held["lang"] == lang and start - held["end"] <= held["window"]:
                             line.update(de=f"{held['de']} {de}", start=held["start"],
                                         speaker=spk or held["speaker"], speaker_conf=conf or held["speaker_conf"])
                             trace["speech_start"] = held["trace"].get("speech_start", held["start"])
@@ -1616,8 +1630,9 @@ def _asr_loop(eng, jobs, busy, seg, ui_q, tr, stop, clock, drop, speaker, tag=No
                     previous = (u.uid, de)
                     if not stop.is_set():                # a new session may already use eng.context
                         eng.context = line["de"]
-                    if hold and not ends_sentence(line["de"]) and u.reason != "stop" and not stop.is_set():
-                        held = line
+                    window = hold_window(line["de"], hold)
+                    if window and u.reason != "stop" and not stop.is_set():
+                        held = {**line, "window": window, "fragment": len(line["de"].split()) <= FRAGMENT_WORDS}
                         show_held()
                     else:
                         emit(line)

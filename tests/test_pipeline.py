@@ -935,3 +935,33 @@ def test_the_german_line_keeps_its_fillers_and_the_translation_does_not():
                            wait=3, finals=1)
     [f] = finals_of(items)
     assert f[1] == "Das ist quasi fertig." and f[2] == "EN(Das ist fertig.)"
+
+
+# ---------------------------------------------------------------- SEG-17: 1-2 word fragments
+def test_hold_window_only_lengthens_fragments():
+    assert m.hold_window("Und dann", 1.5) == m.FRAGMENT_HOLD
+    assert m.hold_window("Die", 0) == m.FRAGMENT_HOLD
+    assert m.hold_window("Wir haben das Projekt", 1.5) == 1.5      # a normal line keeps its hold
+    assert m.hold_window("Gut so.", 4.0) == 0                       # ends a sentence: no wait at all
+    assert m.hold_window("Wir haben das Projekt", 4.0) == 4.0
+
+
+def test_a_fragment_joins_the_next_final_even_with_the_voice_hold():
+    audio = np.concatenate([speech(1), silence(2), speech(1), silence(1)])
+    eng = Scripted("Und dann", "haben wir die Tests gestartet.")
+    items, _ = run_worker(eng, audio, realtime=True, wait=3, finals=1, hold=m.VOICE_HOLD_MAX)
+    assert [f[1] for f in finals_of(items)] == ["Und dann haben wir die Tests gestartet."]
+
+
+def test_a_fragment_too_far_from_the_next_final_is_shown_alone():
+    audio = np.concatenate([speech(1), silence(m.FRAGMENT_HOLD + 1), speech(1), silence(1)])
+    eng = Scripted("Und dann", "Wir fangen an.")
+    items, _ = run_worker(eng, audio, wait=4, finals=2, clock=lambda: 1000.0, hold=m.VOICE_HOLD_MAX)
+    assert [f[1] for f in finals_of(items)] == ["Und dann", "Wir fangen an."]
+
+
+def test_a_longer_unfinished_line_keeps_the_short_voice_hold():
+    audio = np.concatenate([speech(1), silence(2), speech(1), silence(1)])
+    eng = Scripted("Wir haben das Projekt", "Danach kam der Test.")
+    items, _ = run_worker(eng, audio, realtime=True, wait=3, finals=2, hold=m.VOICE_HOLD_MAX)
+    assert [f[1] for f in finals_of(items)] == ["Wir haben das Projekt", "Danach kam der Test."]

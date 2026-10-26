@@ -71,12 +71,13 @@ SETTABLE = {"speech_source", "mic_device", "language", "show_german", "save_tran
             "ui_text_size",                                    # APP-14
             "local_only",                                      # STR-7
             "unsure_marks",                                    # STR-8
-            "cloud_failover"}                                  # STR-9
+            "cloud_failover",                                  # STR-9
+            "tidy_fillers"}                                    # FILL-1
 UI_TEXT_SIZES = ("normal", "large")                      # APP-14: Appearance > Larger UI text
 BOOL_SETTINGS = {"warn_silence", "preload_models", "check_updates", "shortcuts_on",
                  "speaker_labels", "clarify_queue", "bar_time",
                  "capture_both", "voice_readout", "voice_clauses", "english_only", "local_only", "voice_natural", "voice_mix", "voice_split",
-                 "unsure_marks", "cloud_failover"}        # on/off switches that must be true or false
+                 "unsure_marks", "cloud_failover", "tidy_fillers"}        # on/off switches that must be true or false
 SPEAKER_NAME_MAX = 40                                    # SPK-4: longest speaker name
 VOICE_NAMES_MAX = 120                                    # VOICE-7: 'chime when I am named' text
 VOICE_REBUILD = {"voice_natural", "voice_mix", "voice_out_device"}   # VOICE-7/8: these restart the voice
@@ -630,7 +631,7 @@ class Api:
             "engine": self._engine_label(), "engineState": self._engine_state,
             "preloadModels": bool(s.get("preload_models", True)),
             "localOnly": netgate.is_local_only(), "unsureMarks": bool(s.get("unsure_marks")),
-            "cloudFailover": bool(s.get("cloud_failover")),
+            "cloudFailover": bool(s.get("cloud_failover")), "tidyFillers": bool(s.get("tidy_fillers", True)),
             "checkUpdates": bool(s.get("check_updates", True)), "update": self._update, "dataFolder": str(self._data), "version": VERSION,
             "platform": {"os": dolmi_platform.OS, "words": dolmi_platform.WORDS},
         }
@@ -661,6 +662,8 @@ class Api:
             config.save_settings(self._settings)
         if key == "unsure_marks" and self._engine is not None:
             self._engine.unsure_marks = bool(value)
+        if key == "tidy_fillers" and self._engine is not None:
+            self._engine.tidy_fillers = bool(value)
         if key == "local_only":
             netgate.set_local_only(value)
         if key == "keep_days":
@@ -1596,6 +1599,7 @@ class Api:
             if s.get("cloud_failover"):   # STR-9: a failed line is captioned on this PC (model loads on first need)
                 eng.fallback_factory = lambda: live_subs.Engine(s["model"], s["device"], s["language"])
         eng.unsure_marks = bool(s.get("unsure_marks"))   # STR-8
+        eng.tidy_fillers = bool(s.get("tidy_fillers", True))   # FILL-1
         return eng
 
     def _warn_cpu_fallback(self, eng):

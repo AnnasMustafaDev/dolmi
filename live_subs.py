@@ -745,6 +745,34 @@ def strip_ellipses(text: str) -> str:
         return ""
     return re.sub(r"\s{2,}", " ", _DOTS_RUN.sub(" ", text)).strip()
 
+# FILL-1: spoken German fillers that Opus-MT translates word for word ("basically", "in the end", "I say")
+FILLER_PHRASES = ("im Endeffekt", "sage ich mal", "sag ich mal", "sozusagen", "quasi")
+_FILLER = re.compile(r"(,\s*)?\b(" + "|".join(map(re.escape, FILLER_PHRASES)) + r")\b(\s*,)?", re.I)
+# "halt" / "eben" only mid-clause and in lower case: "Halt!", "Eben." and "gerade eben" keep their meaning
+_PARTICLE = re.compile(r"(?<=[^\W\d_] )(?<!gerade )(?<!so )(halt|eben)(?= (?!erst\b|noch\b)[^\W\d_])")
+_ALSO_REPEAT = re.compile(r"\b(also,)(?:\s*also,)+", re.I)
+
+def tidy_fillers(text: str) -> str:
+    """The German sent to the translator without filler words; the subtitle keeps them. Conservative:
+    whole words only, a filler that opens a sentence goes only when a comma follows it ('Quasi, ...'),
+    and a line that would end up without words is returned unchanged."""
+    def phrase(mt):
+        before = text[:mt.start()].rstrip()
+        opens = not before or before[-1] in ".!?"
+        if opens and not mt.group(3):
+            return mt.group(0)                     # 'Sozusagen ist das ...' would lose its verb-second order
+        return " "
+    out = _FILLER.sub(phrase, text)
+    out = _PARTICLE.sub("", out)
+    out = _ALSO_REPEAT.sub(r"\1", out)
+    out = re.sub(r"\s+([,.!?;:])", r"\1", re.sub(r"\s{2,}", " ", out)).strip(" ,")
+    out = re.sub(r"([.!?])\s*,", r"\1", out)
+    if not re.search(r"[^\W\d_]", out):
+        return text
+    if text[:1].isupper() and out[:1].islower():
+        out = out[0].upper() + out[1:]
+    return out
+
 ECHO_TRUSTED = (0.2, -0.5)   # no_speech_prob below and avg_logprob above: Whisper is sure it heard speech
 
 def _is_term_list(sentence: str, terms: set) -> bool:
@@ -1380,8 +1408,14 @@ def strip_repeat(previous: str, text: str) -> str:
     return text
 
 
+def _for_mt(eng, de):
+    """FILL-1: what the translator gets for `de` (fillers tidied unless the setting is off)."""
+    return tidy_fillers(de) if getattr(eng, "tidy_fillers", True) else de
+
+
 def _translate(eng, de, lang, last):
     """The subtitle for a final: with the previous line as context when MT_CONTEXT is on."""
+    de = _for_mt(eng, de)
     fn = getattr(eng, "translate_context", None)
     if MT_CONTEXT and fn and last[0] and last[2] == lang:
         return fn(de, lang, last[0], last[1])
@@ -1484,7 +1518,7 @@ def _asr_loop(eng, jobs, busy, seg, ui_q, tr, stop, clock, drop, speaker, tag=No
         ui_q.put(("draft", "", "", tag(line.get("utt"))))
 
     def show_held():                             # the held words stay on the live line meanwhile
-        ui_q.put(("draft", held["de"], eng.translate(held["de"], held["lang"]),
+        ui_q.put(("draft", held["de"], eng.translate(_for_mt(eng, held["de"]), held["lang"]),
                   {"start": held["start"], "end": held["end"], **tag(held.get("utt")), "emitted": clock()}))
 
     def flush(line):                             # a held line on its own, outside the per-job guard

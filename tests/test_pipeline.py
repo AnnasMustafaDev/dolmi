@@ -928,3 +928,10 @@ def test_a_final_of_only_dots_is_dropped_by_the_engine_filter():
     e.language, e.terms, e.clarify = "de", set(), None
     e._asr = lambda audio, language, **kw: ([seg], NS(language="de"))
     assert e.transcribe(np.zeros(SR, np.float32)) == ("", "de")
+
+
+def test_the_german_line_keeps_its_fillers_and_the_translation_does_not():
+    items, tr = run_worker(Scripted("Das ist quasi fertig."), np.concatenate([speech(1), silence(1)]),
+                           wait=3, finals=1)
+    [f] = finals_of(items)
+    assert f[1] == "Das ist quasi fertig." and f[2] == "EN(Das ist fertig.)"

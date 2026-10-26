@@ -347,7 +347,7 @@ function statusChips(){ const t=$('.top'); if(t) t.classList.toggle('has-status'
 function applyLocalOnly(on){ setSw('#swLocalOnly',on); const c=$('#chipLocal'); if(c) c.hidden=!on; statusChips(); }
 if($('#swLocalOnly')) $('#swLocalOnly').addEventListener('click',async()=>{ const on=$('#swLocalOnly').classList.contains('on'), b=bridge();
   if(b&&!await b.set_setting('local_only',on)){ applyLocalOnly(!on); return; } applyLocalOnly(on); toast(on?'Local only: nothing leaves this computer':'Local only off'); });
-wireSwitch('#swUnsure','unsure_marks'); wireSwitch('#swFailover','cloud_failover');
-async function localOnlyBoot(){ const b=bridge(); if(!b) return; try{ const s=await b.state(); applyLocalOnly(!!s.localOnly); setSw('#swUnsure',s.unsureMarks); setSw('#swFailover',s.cloudFailover); }catch(e){ console.error('local only boot',e); } }
+wireSwitch('#swUnsure','unsure_marks'); wireSwitch('#swFailover','cloud_failover'); wireSwitch('#swFillers','tidy_fillers');
+async function localOnlyBoot(){ const b=bridge(); if(!b) return; try{ const s=await b.state(); applyLocalOnly(!!s.localOnly); setSw('#swUnsure',s.unsureMarks); setSw('#swFailover',s.cloudFailover); setSw('#swFillers',s.tidyFillers!==false); }catch(e){ console.error('local only boot',e); } }
 if(bridge()) localOnlyBoot(); else window.addEventListener('pywebviewready',localOnlyBoot);
 window.dolmi=window.dolmi||{}; window.dolmi.onCloudStatus=st=>{ const c=$('#chipCloud'); if(c) c.hidden=st!=='local'; statusChips(); };

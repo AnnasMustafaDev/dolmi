@@ -380,7 +380,7 @@ class CloudEngine(live_subs.Engine):
             return self._gemini(audio)
         heard = self._openai(audio) if self.provider == "openai" else self._cloudflare(audio)
         heard = live_subs.strip_ellipses(live_subs.collapse_repeats(heard.strip()))
-        return heard, (self.translate(heard, self.language) if heard else "")
+        return heard, (self.translate(live_subs._for_mt(self, heard), self.language) if heard else "")
 
     def _gemini(self, audio):
         prompt = build_prompt(self.glossary, self.vocab, self.context, self.language)

@@ -96,6 +96,7 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "ROOT", program)
     monkeypatch.setattr(config, "CONFIG", cfg)
     monkeypatch.setattr(config, "SETTINGS", cfg / "settings.json")
+    monkeypatch.setattr(config, "LOGS", tmp_path / "logs")   # LAT-1 latency log, dolmi.log
     config.save_settings({**config.DEFAULTS, "data_folder": str(data)})
     # Park the 'nothing heard' watcher thread: tests drive _heard_tick themselves, and a background tick
     # would race them for a faked self._clock.

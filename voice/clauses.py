@@ -140,7 +140,9 @@ class ClauseVoice:
 
     def __init__(self, translate, reader, clock=time.time, pause=PAUSE):
         self.reader, self._clock, self.pause = reader, clock, pause
-        self.speaker = ClauseSpeaker(translate, reader.offer, clock=clock)
+        self.session, self._utt = None, None   # LAT-1: each spoken piece is tagged (session, utt)
+        self.speaker = ClauseSpeaker(translate, lambda en, end: reader.offer(en, end, tag=(self.session, self._utt)),
+                                     clock=clock)
         self._q = queue.Queue()
         self._last = {}            # utt -> (committed, time it last grew)
         self._stop = threading.Event()
@@ -179,6 +181,7 @@ class ClauseVoice:
                 self._handle(item)
 
     def _handle(self, item):
+        self._utt = item[1]
         try:
             if item[0] == "draft":
                 _, utt, committed = item

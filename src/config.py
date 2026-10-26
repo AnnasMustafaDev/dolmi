@@ -65,6 +65,7 @@ DEFAULTS = {
     "voice_mix": False, "voice_safety": 0.10, "voice_split": False, "voice_out_device": "", "voice_names": "",  # VOICE-7: headphone mix
     "voice_clauses": False,                       # VOICE-9: read clause by clause from stable drafts (faster)
     "tidy_fillers": True,                         # FILL-1: drop German fillers (quasi, sozusagen ...) before translating
+    "latency_log": True,                          # LAT-1: per-line timings (no text) in LOGS/latency-YYYY-MM-DD.jsonl
 }
 
 

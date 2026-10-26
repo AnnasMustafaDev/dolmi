@@ -116,7 +116,7 @@ class FakeReader:
     def __init__(self):
         self.said, self.event = [], threading.Event()
 
-    def offer(self, text, end=None):
+    def offer(self, text, end=None, tag=None):
         self.said.append(text)
         self.event.set()
 

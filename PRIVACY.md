@@ -53,9 +53,11 @@ Settings > Privacy & data > **Local only** stops every connection Dolmi makes: c
 | Settings, API keys, vocabulary, glossary | `%APPDATA%\Dolmi` (keys encrypted with Windows DPAPI) | `~/Library/Application Support/Dolmi` (keys encrypted with a secret in your login Keychain) |
 | Transcripts, summaries, saved lines, Assistant chats | `Documents\Dolmi` (change it in Settings) | `~/Documents/Dolmi` (change it in Settings) |
 | Log file | `%LOCALAPPDATA%\Dolmi\dolmi.log` | `~/Library/Logs/Dolmi/dolmi.log` |
+| Latency log (timings only, no text) | `%LOCALAPPDATA%\Dolmi\latency-YYYY-MM-DD.jsonl` | `~/Library/Logs/Dolmi/latency-YYYY-MM-DD.jsonl` |
 | Speech and translation models (and the speaker model, if used) | `%USERPROFILE%\.cache\huggingface` | `~/.cache/huggingface` |
 
 - To stop saving, turn off **Save transcripts** in Settings.
+- The latency log has one line per subtitle with when the speech ended, when the German and English showed and when the voice read it (UTC), plus word counts. It holds **no words of the meeting**, never leaves your computer and is only for measuring speed. To turn it off, set `"latency_log": false` in `settings.json`; delete the files to remove them.
 - To delete old files and chats automatically, use **Delete after**.
 - Uninstalling Dolmi (or moving Dolmi.app to the Bin) keeps your data. Delete the folders above to remove it.
 

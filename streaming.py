@@ -7,6 +7,7 @@
   it holds and reports overload instead of losing anything.
 - CaptionGuard (STR-3): the stale-result guard _pump runs on every caption.
 - trace helpers and TraceWriter (STR-4): one per-utterance latency record.
+- LatencyLog (LAT-1): one row per final line in log_dir()/latency-YYYY-MM-DD.jsonl, no text.
 
 HypothesisBuffer and the update/trim logic of StableDraft are ported from ufal/whisper_streaming
 (whisper_online.py: HypothesisBuffer, OnlineASRProcessor), MIT licence, Copyright (c) 2023 ÚFAL;
@@ -319,6 +320,99 @@ class TraceWriter:
                     f.write(json.dumps(row) + "\n")
         except OSError as e:
             print(f"Trace not written ({e})")
+
+
+# ---- LAT-1: per-line latency log (on by default, local only, no text)
+LATENCY_STAGES = (("speech_end", "german_shown"), ("speech_end", "english_shown"),
+                  ("english_shown", "voice_start"), ("voice_start", "voice_end"), ("speech_end", "voice_end"))
+LATENCY_VOICE_WAIT = 30.0   # s after a line is shown that its row waits for the voice to finish
+
+
+def _iso(t):
+    return datetime.fromtimestamp(t, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def latency_row(times, ids, counts):
+    """One latency-log row: the stage times (epoch s) as UTC ISO 8601 and the deltas between them in ms
+    (key '<a>_to_<b>_ms'). `ids` and `counts` (word counts) are copied as they are."""
+    row = dict(ids)
+    row.update({k: _iso(v) for k, v in times.items() if isinstance(v, (int, float))})
+    for a, b in LATENCY_STAGES:
+        if isinstance(times.get(a), (int, float)) and isinstance(times.get(b), (int, float)):
+            row[f"{a}_to_{b}_ms"] = round((times[b] - times[a]) * 1000)
+    row.update(counts)
+    return row
+
+
+class LatencyLog:
+    """Collects the times of each final line (keyed by session and utterance) and appends one JSON row
+    per line to `folder`/latency-YYYY-MM-DD.jsonl (UTC date; default dolmi_platform.log_dir(), which is
+    %LOCALAPPDATA%\\Dolmi on Windows, also under pythonw). With the voice on, a row waits until the voice
+    has read that line (or LATENCY_VOICE_WAIT s, or flush()). Word counts only, never text."""
+
+    def __init__(self, folder=None, clock=time.time):
+        self.folder, self._clock = folder, clock
+        self._first_de = {}                  # (session, utt) -> when its German first showed (a draft)
+        self._rows = {}                      # (session, utt) -> pending row state
+        self._lock = threading.Lock()
+
+    def _dir(self):
+        if self.folder is not None:
+            return Path(self.folder)
+        import dolmi_platform
+        return Path(dolmi_platform.log_dir())
+
+    def draft_shown(self, session, utt, when):
+        with self._lock:
+            if len(self._first_de) > 200:    # drafts of utterances that never got a final
+                self._first_de.clear()
+            self._first_de.setdefault((session, utt), when)
+
+    def final_shown(self, meta, de, en, when, voice=False):
+        trace = meta.get("trace") or {}
+        key = (meta.get("session"), meta.get("utt"))
+        speech_end = trace.get("speech_end", meta.get("end"))
+        with self._lock:
+            german = self._first_de.pop(key, when)
+            self._rows[key] = {
+                "times": {"speech_end": speech_end, "german_shown": min(german, when), "english_shown": when},
+                "ids": {"utt": meta.get("utt"), "line": meta.get("id")},
+                "counts": {"de_words": len((de or "").split()), "en_words": len((en or "").split())},
+                "voice": voice, "shown": when, "voice_done": False}
+        self._write_ready()
+
+    def voice_spoken(self, session, utt, start, end, last=True):
+        """The voice read (a piece of) utterance `utt` from `start` to `end`; `last`: nothing more queued."""
+        with self._lock:
+            row = self._rows.get((session, utt))
+            if row is None:
+                return
+            row["times"].setdefault("voice_start", start)
+            row["times"]["voice_end"] = end
+            row["voice_done"] = last
+        self._write_ready()
+
+    def flush(self):
+        self._write_ready(everything=True)
+
+    def _write_ready(self, everything=False):
+        now = self._clock()
+        with self._lock:
+            ready = [k for k, r in self._rows.items() if everything or not r["voice"] or r["voice_done"]
+                     or now - r["shown"] >= LATENCY_VOICE_WAIT]
+            rows = [self._rows.pop(k) for k in ready]
+        if rows:
+            self._append([latency_row(r["times"], r["ids"], r["counts"]) for r in rows])
+
+    def _append(self, rows):
+        try:
+            folder = self._dir()
+            folder.mkdir(parents=True, exist_ok=True)
+            day = datetime.fromtimestamp(self._clock(), timezone.utc)
+            with (folder / f"latency-{day:%Y-%m-%d}.jsonl").open("a", encoding="utf-8") as f:
+                f.writelines(json.dumps(r) + "\n" for r in rows)
+        except OSError as e:
+            print(f"Latency log not written ({e})")
 
 
 # ---- STR-12: adaptive endpointing (idea from LiveTranslate vad_processor.py, MIT; own code)

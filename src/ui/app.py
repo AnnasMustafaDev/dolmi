@@ -72,12 +72,13 @@ SETTABLE = {"speech_source", "mic_device", "language", "show_german", "save_tran
             "local_only",                                      # STR-7
             "unsure_marks",                                    # STR-8
             "cloud_failover",                                  # STR-9
-            "tidy_fillers"}                                    # FILL-1
+            "tidy_fillers",                                    # FILL-1
+            "latency_log"}                                     # LAT-1
 UI_TEXT_SIZES = ("normal", "large")                      # APP-14: Appearance > Larger UI text
 BOOL_SETTINGS = {"warn_silence", "preload_models", "check_updates", "shortcuts_on",
                  "speaker_labels", "clarify_queue", "bar_time",
                  "capture_both", "voice_readout", "voice_clauses", "english_only", "local_only", "voice_natural", "voice_mix", "voice_split",
-                 "unsure_marks", "cloud_failover", "tidy_fillers"}        # on/off switches that must be true or false
+                 "unsure_marks", "cloud_failover", "tidy_fillers", "latency_log"}        # on/off switches that must be true or false
 SPEAKER_NAME_MAX = 40                                    # SPK-4: longest speaker name
 VOICE_NAMES_MAX = 120                                    # VOICE-7: 'chime when I am named' text
 VOICE_REBUILD = {"voice_natural", "voice_mix", "voice_out_device"}   # VOICE-7/8: these restart the voice
@@ -405,6 +406,7 @@ class Api:
         self._ui_q = queue.Queue()
         self._guard = streaming.CaptionGuard()   # STR-3: stale drafts and old sessions never reach the page
         self._tracer = None                  # STR-4: (session token, TraceWriter) while DOLMI_TRACE=1
+        self._latency = streaming.LatencyLog(config.LOGS)   # LAT-1: per-line timings, no text, local file only
         self._ask_q = queue.Queue()
         self._ov_q = queue.Queue()
         self._vocab_lock = threading.Lock()  # a save and the watcher's look at the files never interleave
@@ -461,6 +463,8 @@ class Api:
                 elif kind == "final":
                     meta = self._caption_meta(meta, final=True)
                     self._write_trace(meta, a, b)
+                    if self._settings.get("latency_log", True):
+                        self._latency.final_shown(meta, a, b, meta["shown"], voice=bool(b) and self._readout_on())
                     ts = _clock(meta["start"])
                     with self._hist_lock:
                         self._history.append((ts, a, b, meta))
@@ -479,6 +483,8 @@ class Api:
                     meta = self._caption_meta(meta, final=False)
                     if a or b:
                         self._mark_caption()
+                    if a and self._settings.get("latency_log", True):
+                        self._latency.draft_shown(meta.get("session"), meta.get("utt"), meta["shown"])
                     self._emit("onDraft", a, b, meta)
                     self._voice_draft(meta)
                     self._ov("draft", a, b, {k: meta.get(k) for k in
@@ -884,7 +890,9 @@ class Api:
                 rest = []
                 if backend is None:
                     return None
-            r = self._voice = reader.Reader(backend, fallbacks=rest, mixer=mix).start()
+            r = self._voice = reader.Reader(backend, fallbacks=rest, mixer=mix)
+            r.on_spoken = self._voice_spoken
+            r.start()
         return r
 
     def _voice_german_allowed(self):
@@ -959,7 +967,11 @@ class Api:
             return
         r = self._voice_reader()
         if r:
-            r.offer(en, meta.get("end"))
+            r.offer(en, meta.get("end"), tag=(meta.get("session"), meta.get("utt")))
+
+    def _voice_spoken(self, tag, start, end, last):
+        """LAT-1: the voice read a line (Reader.on_spoken, voice thread)."""
+        self._latency.voice_spoken(tag[0], tag[1], start, end, last)
 
     def _voice_stop(self):
         self._clauses_stop()
@@ -990,11 +1002,13 @@ class Api:
         if meta.get("committed"):
             cv = self._clause_voice()
             if cv:
+                cv.session = meta.get("session")
                 cv.draft(meta.get("utt"), meta["committed"])
 
     def _voice_final(self, de, en, meta):
         cv = self._clause_voice() if self._readout_on() and en else None
         if cv:
+            cv.session = meta.get("session")
             cv.final(meta.get("utt"), de, en)
         else:
             self._voice_offer(en, meta)
@@ -1414,6 +1428,10 @@ class Api:
         if cap:
             cap.set()
         self._level = 0.0
+        # LAT-1: rows still waiting for the voice are written once it had time to finish
+        t = threading.Timer(streaming.LATENCY_VOICE_WAIT, self._latency.flush)
+        t.daemon = True
+        t.start()
         tr = s.get("transcript") if s else None
         if tr and s.get("diarizer"):                  # SPK-3: rewrite the files with the final speaker names
             threading.Thread(target=self._finish_transcript, args=(tr,), daemon=True).start()

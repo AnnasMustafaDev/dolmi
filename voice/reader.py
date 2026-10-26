@@ -54,6 +54,8 @@ class Reader:
         self._q, self._cv = deque(), threading.Condition()
         self._stopped = False
         self.spoken = self.skipped = 0      # skipped stays 0: every line is spoken (VOICE-10)
+        self.on_spoken = None               # LAT-1: on_spoken(tag, start, end, last) after each tagged line
+        self._tag = None
         self._thread = None
 
     def start(self):
@@ -61,15 +63,16 @@ class Reader:
         self._thread.start()
         return self
 
-    def offer(self, text, end=None):
-        """Queue an English line; `end` (when its speech ended) is kept for callers, pace uses the backlog."""
+    def offer(self, text, end=None, tag=None):
+        """Queue an English line; `end` (when its speech ended) is kept for callers, pace uses the backlog.
+        `tag` (any id, e.g. (session, utt)) is handed back to on_spoken once the line was read."""
         text = (text or "").strip()
         if not text:
             return
         with self._cv:
             if self._stopped:
                 return
-            self._q.append((text, self._clock() if end is None else end))
+            self._q.append((text, self._clock() if end is None else end, tag))
             self._cv.notify()
 
     def next_line(self, wait=None):
@@ -83,8 +86,8 @@ class Reader:
         with self._cv:
             while True:
                 if self._q:
-                    text, _end = self._q.popleft()
-                    backlog = speech_seconds(text) + sum(speech_seconds(t) for t, _ in self._q)
+                    text, _end, self._tag = self._q.popleft()
+                    backlog = speech_seconds(text) + sum(speech_seconds(t) for t, *_ in self._q)
                     return text, backlog + self._playing()
                 if self._stopped:
                     return None
@@ -98,9 +101,23 @@ class Reader:
                 item = self.next_item()
                 if item is None:
                     return
+                tag, start = self._tag, self._clock() + self._playing()
                 self._say(*item)
+                self._report(tag, start)
         finally:
             self._close_backend()
+
+    def _report(self, tag, start):
+        """LAT-1: tell on_spoken when the voice read a tagged line (end includes audio still playing)."""
+        cb = self.on_spoken
+        if cb is None or tag is None:
+            return
+        with self._cv:
+            last = not any(t == tag for *_, t in self._q)
+        try:
+            cb(tag, start, self._clock() + self._playing(), last)
+        except Exception as e:
+            print(f"voice: timing callback failed: {e}")
 
     def _playing(self):
         left = getattr(self.mixer, "tts_left", None)

@@ -15,6 +15,7 @@ import numbers
 import os
 import queue
 import re
+import sys
 import threading
 import time
 import unicodedata
@@ -122,6 +123,7 @@ HEARD_SOUND_NOW_S = 3.0          # sound in the last 3 s counts as "sound presen
 # APP-4 Instant Start: settings that change which models the next Start needs
 ENGINE_SETTINGS = ("model", "language", "speech_source")
 WARM_DEBOUNCE_S = 0.5            # several setting changes in a row load the models once
+QUIT_GRACE_S = 1.5               # closing the window: let files and the audio restore finish, then exit
 
 
 # APP-7 global shortcuts: what each does, and its default (Ctrl+Alt+Shift+D stays "show Dolmi")
@@ -2719,6 +2721,33 @@ class Api:
             config.save_settings(self._settings)
         dolmi_platform.apply_invisible(self, on)
         return on
+
+    def _on_main_closed(self, window):
+        """The main window closed. On a Mac the invisible switch rebuilds it (the old one closes after
+        self._window already points at the new one): that is not a quit. Otherwise quit for real: the
+        hidden subtitle bar and the model threads would keep a windowless Dolmi alive, and every later
+        launch would only poke that one (APP-5) and seem to do nothing."""
+        if self._window is not window:
+            return
+        self._window = None
+        threading.Thread(target=self._shutdown, name="dolmi-quit", daemon=True).start()
+
+    def _shutdown(self):
+        try:
+            self.stop_listening()
+            self._latency.flush()
+        except Exception as e:
+            print(f"quit: stop failed: {e}")
+        self._routing_end()
+        ov = self._overlay
+        if ov:
+            try:
+                ov.window.destroy()
+            except Exception as e:
+                print(f"quit: overlay close failed: {e}")
+        time.sleep(QUIT_GRACE_S)             # transcript files and the routing restore finish first
+        sys.stdout and sys.stdout.flush()
+        os._exit(0)                          # CUDA and audio threads can hold a normal exit for minutes
 
     def _bring_to_front(self):
         """A second Dolmi was launched (APP-5): show this window instead (invisible mode stays as it is)."""

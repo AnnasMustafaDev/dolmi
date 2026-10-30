@@ -90,13 +90,12 @@ def download():
 
 def deps_ok():
     """True when onnxruntime, misaki's English G2P and spaCy's small English model are installed. The
-    model must already be there: misaki would otherwise download it itself, past netgate."""
+    model must already be there: misaki would otherwise download it itself, past netgate. Only looks
+    the packages up: importing them takes seconds, and Settings asks this while the window opens."""
+    from importlib.util import find_spec
     try:
-        import onnxruntime  # noqa: F401
-        import misaki.en  # noqa: F401
-        import spacy
-        return bool(spacy.util.is_package("en_core_web_sm"))
-    except Exception:
+        return all(find_spec(m) is not None for m in ("onnxruntime", "misaki", "spacy", "en_core_web_sm"))
+    except (ImportError, ValueError):
         return False
 
 

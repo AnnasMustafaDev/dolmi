@@ -433,8 +433,9 @@ def documents_folder() -> Path:
     return Path.home() / "Documents"
 
 def needs_log_file():
-    """Under pythonw there's no console: print() must go to the log file instead."""
-    return sys.stdout is None or sys.stderr is None
+    """Under pythonw there's no console: print() must go to the log file instead. The installed build's
+    pythonw still has a sys.stdout (writing nowhere), so also ask Windows whether a console exists."""
+    return sys.stdout is None or sys.stderr is None or not ctypes.windll.kernel32.GetConsoleWindow()
 
 
 # ------------------------------------------------------------------ one Dolmi at a time (APP-5)

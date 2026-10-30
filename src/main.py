@@ -67,10 +67,12 @@ def main():
     api = app_mod.Api()
 
     def make_window(x=None, y=None, width=1180, height=780):
-        return webview.create_window(
+        w = webview.create_window(
             "Dolmi", url=str((WEB / "index.html").as_uri()), js_api=api, x=x, y=y,
             width=width, height=height, min_size=(900, 600), background_color="#F2ECDF",
             text_select=True)   # captions, transcripts and answers must be selectable/copyable
+        w.events.closed += lambda *_: api._on_main_closed(w)   # closing the window quits Dolmi
+        return w
 
     window = make_window()
     api._window = window
@@ -91,7 +93,6 @@ def main():
         dolmi_platform.start_recover_hotkey(api.recover)
         api._start_shortcuts()           # APP-7: start/stop, bar, source, lock from any app (after the recover key)
 
-    window.events.closed += api._routing_end   # VOICE-5: never leave the meeting apps rerouted
     atexit.register(api._routing_end)
 
     icon = dolmi_platform.app_icon(ROOT)

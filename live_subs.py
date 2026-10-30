@@ -755,6 +755,8 @@ _FILLER = re.compile(r"(,\s*)?\b(" + "|".join(map(re.escape, FILLER_PHRASES)) + 
 # "halt" / "eben" only mid-clause and in lower case: "Halt!", "Eben." and "gerade eben" keep their meaning
 _PARTICLE = re.compile(r"(?<=[^\W\d_] )(?<!gerade )(?<!so )(halt|eben)(?= (?!erst\b|noch\b)[^\W\d_])")
 _ALSO_REPEAT = re.compile(r"\b(also,)(?:\s*also,)+", re.I)
+# hesitation sounds carry no meaning or word order, so they go anywhere (Opus-MT writes them as "Um, ... uh")
+_HESITATION = re.compile(r"(?<![^\W\d_])(?:ähm+|äh+|öhm+|ehm+|hm+)(?![^\W\d_]),?", re.I)
 
 def tidy_fillers(text: str) -> str:
     """The German sent to the translator without filler words; the subtitle keeps them. Conservative:
@@ -767,6 +769,7 @@ def tidy_fillers(text: str) -> str:
             return mt.group(0)                     # 'Sozusagen ist das ...' would lose its verb-second order
         return " "
     out = _FILLER.sub(phrase, text)
+    out = _HESITATION.sub(" ", out)
     out = _PARTICLE.sub("", out)
     out = _ALSO_REPEAT.sub(r"\1", out)
     out = re.sub(r"\s+([,.!?;:])", r"\1", re.sub(r"\s{2,}", " ", out)).strip(" ,")

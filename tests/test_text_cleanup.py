@@ -29,6 +29,10 @@ def test_runs_of_three_ellipses_go_and_normal_text_stays(text, out):
     ("Das ist eben nicht so einfach.", "Das ist nicht so einfach."),
     ("Also, also, also, wir fangen an.", "Also, wir fangen an."),
     ("Quasi, das Modul ist fertig.", "Das Modul ist fertig."),
+    ("Ähm und das ist einfach eine Seite.", "Und das ist einfach eine Seite."),
+    ("Da hast du, äh, ähm, lesende Rechte.", "Da hast du, lesende Rechte."),
+    ("Das ist gut ähm.", "Das ist gut."),
+    ("Hmm, schwierig.", "Schwierig."),
 ])
 def test_fillers_are_tidied_for_the_translator(text, out):
     assert m.tidy_fillers(text) == out
@@ -43,6 +47,7 @@ def test_fillers_are_tidied_for_the_translator(text, out):
     "Sozusagen ist das der Plan.",          # opening filler without a comma: verb order would break
     "Quasi.", "Sozusagen, quasi.",          # never empty the line
     "Das Quasimodo-Projekt läuft.",         # whole words only
+    "Der Ähmer-Bericht kommt.", "Ähm.",     # hesitations: whole words only, never empty the line
 ])
 def test_fillers_are_conservative(text):
     assert m.tidy_fillers(text) == text

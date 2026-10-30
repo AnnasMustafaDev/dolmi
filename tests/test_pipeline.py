@@ -953,6 +953,33 @@ def test_a_fragment_joins_the_next_final_even_with_the_voice_hold():
     assert [f[1] for f in finals_of(items)] == ["Und dann haben wir die Tests gestartet."]
 
 
+class Bilingual(Scripted):
+    """Finals hear (text, language) pairs: Whisper often calls a lone 'um' or 'Ja' English."""
+
+    def transcribe(self, audio):
+        return next(self.texts)
+
+
+def test_a_fragment_whisper_called_english_still_joins_the_german_line():
+    audio = np.concatenate([speech(1), silence(2), speech(1), silence(1)])
+    eng = Bilingual(("um", "en"), ("Genau, dann haben wir die Tests gestartet.", "de"))
+    items, _ = run_worker(eng, audio, realtime=True, wait=3, finals=1, hold=m.VOICE_HOLD_MAX)
+    [f] = finals_of(items)                    # before: 'um' waited for the next line, then was shown alone
+    assert f[1] == "um Genau, dann haben wir die Tests gestartet." and f[3]["lang"] == "de"
+
+
+def test_lines_of_another_language_still_do_not_join():
+    audio = np.concatenate([speech(1), silence(1), speech(1), silence(1)])
+    eng = Bilingual(("Wir haben das Projekt", "de"), ("Okay, sounds good.", "en"))
+    items, _ = run_worker(eng, audio, wait=3, finals=2, clock=lambda: 1000.0)
+    assert [f[1] for f in finals_of(items)] == ["Wir haben das Projekt", "Okay, sounds good."]
+
+
+def test_short_german_replies_whisper_calls_english_are_translated():
+    assert m.looks_german("Vielen Dank.") and m.looks_german("Nee!")
+    assert not m.looks_german("Thank you.") and not m.looks_german("Okay, nice.")
+
+
 def test_a_fragment_too_far_from_the_next_final_is_shown_alone():
     audio = np.concatenate([speech(1), silence(m.FRAGMENT_HOLD + 1), speech(1), silence(1)])
     eng = Scripted("Und dann", "Wir fangen an.")

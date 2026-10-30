@@ -693,6 +693,7 @@ muss müssen soll sollen sollten möchte ich wir ihr sie es er uns euch mir mich
 des das dass ein eine einen einem einer kein keine nichts mit auf für über unter von vom zum zur bei
 beim nach seit bis auch noch nur schon jetzt dann wenn weil wie warum wo hier dort heute morgen gestern
 sehr doch mal ja nein genau eigentlich vielleicht gerade immer bitte danke diese dieser dieses
+vielen dank nee tschüss passt stimmt
 """.split())
 
 def looks_german(text: str) -> bool:
@@ -1581,7 +1582,7 @@ def _asr_loop(eng, jobs, busy, seg, ui_q, tr, stop, clock, drop, speaker, tag=No
                         continue
                     if len(audio) / SR >= MIN_SENTENCE and ends_sentence(de):
                         seg.mark_sentence_end(uid, upto)   # final on the next short pause
-                    if held and held["lang"] == lang:
+                    if held and (held["lang"] == lang or held["fragment"]):
                         de, meta = f"{held['de']} {de}", {**meta, "start": held["start"]}
                         committed = f"{held['de']} {committed}".strip()
                     meta = {**meta, "committed": committed, "tentative": tentative}
@@ -1620,7 +1621,10 @@ def _asr_loop(eng, jobs, busy, seg, ui_q, tr, stop, clock, drop, speaker, tag=No
                             "unsure": _unsure(eng)}
                     if held:
                         same = None in (spk, held["speaker"]) or spk == held["speaker"]
-                        if same and held["lang"] == lang and start - held["end"] <= held["window"]:
+                        # Whisper's language guess on 1-2 words ("um", "Ja") is unreliable: a fragment joins
+                        # a line in another language too and takes that line's language
+                        joins = held["lang"] == lang or held["fragment"]
+                        if same and joins and start - held["end"] <= held["window"]:
                             line.update(de=f"{held['de']} {de}", start=held["start"],
                                         speaker=spk or held["speaker"], speaker_conf=conf or held["speaker_conf"])
                             trace["speech_start"] = held["trace"].get("speech_start", held["start"])

@@ -120,6 +120,7 @@
     ['privacy','#swLocalOnly','click','set_setting','local_only'],                      // STR-7
     ['captions','#swUnsure','click','set_setting','unsure_marks'],                      // STR-8
     ['captions','#swFailover','click','set_setting','cloud_failover'],                  // STR-9
+    ['captions','#swFillers','click','set_setting','tidy_fillers'],                     // FILL-1
   ];
   window.__uiControls=CONTROLS;   // other checks (new features) push rows here before run() starts
   async function use(el,how){

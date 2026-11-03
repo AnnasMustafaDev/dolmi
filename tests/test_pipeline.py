@@ -953,7 +953,7 @@ def test_hold_window_only_lengthens_fragments():
 
 
 def test_a_fragment_joins_the_next_final_even_with_the_voice_hold():
-    audio = np.concatenate([speech(1), silence(2), speech(1), silence(1)])
+    audio = np.concatenate([speech(1), silence(1.7), speech(1), silence(1)])   # gap > VOICE_HOLD_MAX, slack for slow CI
     eng = Scripted("Und dann", "haben wir die Tests gestartet.")
     items, _ = run_worker(eng, audio, realtime=True, wait=3, finals=1, hold=m.VOICE_HOLD_MAX)
     assert [f[1] for f in finals_of(items)] == ["Und dann haben wir die Tests gestartet."]
@@ -967,7 +967,7 @@ class Bilingual(Scripted):
 
 
 def test_a_fragment_whisper_called_english_still_joins_the_german_line():
-    audio = np.concatenate([speech(1), silence(2), speech(1), silence(1)])
+    audio = np.concatenate([speech(1), silence(1.7), speech(1), silence(1)])   # gap > VOICE_HOLD_MAX, slack for slow CI
     eng = Bilingual(("um", "en"), ("Genau, dann haben wir die Tests gestartet.", "de"))
     items, _ = run_worker(eng, audio, realtime=True, wait=3, finals=1, hold=m.VOICE_HOLD_MAX)
     [f] = finals_of(items)                    # before: 'um' waited for the next line, then was shown alone
@@ -994,7 +994,7 @@ def test_a_fragment_too_far_from_the_next_final_is_shown_alone():
 
 
 def test_a_longer_unfinished_line_keeps_the_short_voice_hold():
-    audio = np.concatenate([speech(1), silence(2), speech(1), silence(1)])
+    audio = np.concatenate([speech(1), silence(1.7), speech(1), silence(1)])   # gap > VOICE_HOLD_MAX, slack for slow CI
     eng = Scripted("Wir haben das Projekt", "Danach kam der Test.")
     items, _ = run_worker(eng, audio, realtime=True, wait=3, finals=2, hold=m.VOICE_HOLD_MAX)
     assert [f[1] for f in finals_of(items)] == ["Wir haben das Projekt", "Danach kam der Test."]

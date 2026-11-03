@@ -58,10 +58,12 @@ def run_worker(eng, audio, realtime=False, wait=3.0, finals=None, **kw):
     aq, uq, stop, tr = queue.Queue(), queue.Queue(), threading.Event(), Collect()
     th = threading.Thread(target=m.worker, args=(eng, aq, uq, tr, stop, energy_gap), kwargs=kw, daemon=True)
     th.start()
+    t0, fed = time.time(), 0
     for c in chunks(audio):
         aq.put(c)
-        if realtime:
-            time.sleep(len(c) / SR)
+        fed += len(c)
+        if realtime:                       # pace by the audio clock: per-chunk sleeps drift on slow CI runners
+            time.sleep(max(0.0, t0 + fed / SR - time.time()))
     items, deadline = [], time.time() + wait
     while time.time() < deadline:
         try:

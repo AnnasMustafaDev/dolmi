@@ -76,6 +76,7 @@ HALLUCINATIONS = [
 BROADCASTERS = ["zdf", "swr", "wdr", "ndr", "mdr", "ard", "rbb", "funk", "orf", "srf", "radio-canada"]
 SILENCE_GHOSTS = {         # kept when someone says them; dropped alone on near-silent audio
     "thank you", "thank you very much", "thanks", "vielen dank", "tschüss",
+    "see you next time", "well see you next time", "au revoir",   # "We'll ..." after the goodbyes
 }
 # Languages written in Latin script: only for these is a line in another script a misheard ghost.
 # (Serbian is left out: it is written in both Latin and Cyrillic.)

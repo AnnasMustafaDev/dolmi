@@ -384,6 +384,12 @@ def test_quiet_real_speech_is_not_a_silence_ghost():
     assert m.junk_reason("Vielen Dank.", energy=0.004, lang="de") == "silence_ghost"
 
 
+def test_outro_phrases_on_silence_are_ghosts():
+    assert m.junk_reason("We'll see you next time.", energy=0.004, lang="de") == "silence_ghost"
+    assert m.junk_reason("Au revoir.", energy=0.004, lang="de") == "silence_ghost"
+    assert m.junk_reason("We'll see you next time.", energy=0.05, lang="de") is None   # said aloud
+
+
 def test_dedupe_keeps_a_short_word_said_again():
     assert m.dedupe_overlap("das ist so", "so ist das") == "so ist das"
     assert m.dedupe_overlap("wir gehen nach Hause", "Hause und dann") == "und dann"   # a long word still counts
